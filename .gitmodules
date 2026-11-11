@@ -1,0 +1,25 @@
+[submodule "automation/n8n"]
+	path = automation/n8n
+	url = https://github.com/n8n-io/n8n.git
+	shallow = true
+[submodule "automation/github-mcp-server"]
+	path = automation/github-mcp-server
+	url = https://github.com/github/github-mcp-server.git
+	shallow = true
+[submodule "automation/remotion"]
+	path = automation/remotion
+	url = https://github.com/remotion-dev/remotion.git
+	shallow = true
+[submodule "automation/openpost"]
+	path = automation/openpost
+	url = https://github.com/getopenpost/openpost.git
+	shallow = true
+[submodule "services/spec-kit/upstream"]
+	path = services/spec-kit/upstream
+	url = https://github.com/github/spec-kit.git
+[submodule "services/artemis/upstream"]
+	path = services/artemis/upstream
+	url = https://github.com/google/artemis.git
+[submodule "services/xtool/upstream"]
+	path = services/xtool/upstream
+	url = https://github.com/xtool-org/xtool.git

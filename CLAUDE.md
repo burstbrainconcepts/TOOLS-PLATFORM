@@ -1,6 +1,6 @@
 # CLAUDE.md — bb-tools-platform
 
-Monorepo for Burst Brain Concepts AI-engineering tools. One GitHub repo, one Railway project, three isolated services plus one shared database.
+Monorepo for Burst Brain Concepts engineering tools. It contains three isolated Railway service shells plus a separate `automation/` toolkit source collection. The automation projects are independent upstream repositories, not services and not yet integrated.
 
 ## Layout (strict separation)
 
@@ -8,23 +8,31 @@ Monorepo for Burst Brain Concepts AI-engineering tools. One GitHub repo, one Rai
 bb-tools-platform/
 ├── CLAUDE.md
 ├── README.md                 # deploy + DNS runbook
+├── automation/                # independent upstream tools (Git submodules)
+│   ├── README.md              # integration plan and AI-agent setup
+│   ├── n8n/
+│   ├── github-mcp-server/
+│   ├── remotion/
+│   └── openpost/
 └── services/
     ├── spec-kit/             # Spec-driven development (github/spec-kit)
     ├── artemis/              # Android automation/testing (google/artemis)
     └── xtool/                # iOS build toolchain (xtool-org/xtool)
 ```
 
-Each service folder is self-contained: own `Dockerfile`, `railway.json`, `server.py`, and README notes.
+Each service folder is self-contained: own `Dockerfile`, `railway.json`, `server.py`, and README notes. Keep the upstream projects in `automation/` separate; do not copy them into or treat them as part of a Railway service.
 
-## Rules for Claude
+## Rules
 
-1. **Never cross folders.** A change for one service must only touch `services/<that-service>/`. Do not import code or share files between services.
+1. **Keep services isolated.** A change for one service must only touch `services/<that-service>/`. Do not import code or share files between services.
 2. Services talk to each other only through URLs in environment variables (`SPEC_KIT_URL`, `ARTEMIS_URL`, `XTOOL_URL`), never by file path.
 3. All services share ONE Postgres via `DATABASE_URL`. Each service must use its own schema (`spec_kit`, `artemis`, `xtool`) or table prefix. Never touch another service's tables.
-4. No secrets in git. API keys (LLM providers, Apple credentials) live in Railway variables only.
+4. No secrets in git. Store credentials in Railway variables or the relevant tool's encrypted credential store; never put them in source files or committed workflow exports.
 5. Audit first: read the service's folder and README before modifying; summarize the plan before editing.
 6. Never run ARTEMIS against real money flows or personal devices; test devices and test accounts only.
 7. Pushing to `main` auto-deploys. Work on a branch and open a PR for anything non-trivial.
+8. **Automation tools are separate upstreams.** Keep each submodule isolated under `automation/`; coordinate them through documented APIs, MCP, or CLI calls. Do not merge their source trees together.
+9. Treat AI-generated repository changes and social posts as drafts. Require human approval before merging, deploying, or publishing.
 
 ## Railway mapping
 

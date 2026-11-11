@@ -2,6 +2,8 @@
 
 One repo, three Railway services, one Postgres. See [CLAUDE.md](CLAUDE.md) for the rules.
 
+The separate [`automation/`](automation/README.md) folder contains Git submodules for workflow orchestration, GitHub access, video rendering, and social content. They are source checkouts only; see its README for the staged integration plan. They are not deployed by the Railway service setup below.
+
 ## 1. Push to GitHub
 ```
 gh repo create bb-tools-platform --private --source . --push
