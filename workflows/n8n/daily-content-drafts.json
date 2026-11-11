@@ -1,0 +1,107 @@
+{
+  "name": "BB - Daily Content Drafts (approval required)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 9 * * *" }] }
+      },
+      "id": "c1",
+      "name": "Every day 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// EDIT THESE VALUES. No secrets here: keys live in n8n Credentials.\n// workspaceId and accountIds come from OpenPost (Accounts page / API).\nreturn [{ json: {\n  openpostUrl: 'https://openpost-production-4b29bae7.up.railway.app',\n  workspaceId: 'REPLACE_WITH_OPENPOST_WORKSPACE_ID',\n  accountIds: [],\n  claudeModel: 'claude-sonnet-5-5',\n  telegramChatId: 'REPLACE_WITH_TELEGRAM_CHAT_ID',\n  postsPerRun: 3,\n  brand: 'Burst Brain Concepts - practical software engineering tips, build-in-public updates.',\n  topics: ['developer productivity', 'shipping small projects fast', 'lessons from building with AI tools'],\n  today: new Date().toISOString().slice(0, 10)\n}}];"
+      },
+      "id": "c2",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "anthropic-version", "value": "2023-06-01" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $json.claudeModel, max_tokens: 1500, messages: [ { role: 'user', content: 'Brand: ' + $json.brand + '\\nTopics: ' + $json.topics.join('; ') + '\\n\\nWrite ' + $json.postsPerRun + ' distinct, original, useful social posts (max 280 characters each, no hashtag spam, no made-up statistics, no claims about real people). Reply with ONLY a JSON array like [{\"title\":\"short internal title\",\"text\":\"post text\"}].' } ] }) }}"
+      },
+      "id": "c3",
+      "name": "Claude - write drafts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 200],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "Anthropic API key (header x-api-key)" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Config').first().json;\nconst raw = $json.content[0].text;\nconst start = raw.indexOf('[');\nconst end = raw.lastIndexOf(']');\nif (start < 0 || end < 0) throw new Error('Claude did not return a JSON array');\nconst posts = JSON.parse(raw.slice(start, end + 1));\nreturn posts.slice(0, cfg.postsPerRun).map((p, i) => ({ json: {\n  title: String(p.title || 'Draft ' + (i + 1)).slice(0, 120),\n  text: String(p.text || '').slice(0, 2000),\n  key: 'bb-' + cfg.today + '-' + i,\n  workspaceId: cfg.workspaceId,\n  accountIds: cfg.accountIds,\n  openpostUrl: cfg.openpostUrl\n}}));"
+      },
+      "id": "c4",
+      "name": "Split into posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.openpostUrl }}/api/v1/publications",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Idempotency-Key", "value": "={{ $json.key }}" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ workspace_id: $json.workspaceId, title: $json.title, content_profile: 'short_text', source_text: $json.text, social_account_ids: $json.accountIds }) }}"
+      },
+      "id": "c5",
+      "name": "OpenPost - create DRAFT (never publishes)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 200],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "OpenPost API token (Authorization: Bearer ...)" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Config').first().json;\nreturn [{ json: { chatId: cfg.telegramChatId, text: `${$input.all().length} draft post(s) are waiting for your approval in OpenPost:\\n${cfg.openpostUrl}\\nNothing has been published.` } }];"
+      },
+      "id": "c6",
+      "name": "Summarize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "id": "c7",
+      "name": "Notify on Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1320, 200],
+      "credentials": { "telegramApi": { "id": null, "name": "Telegram bot" } }
+    }
+  ],
+  "connections": {
+    "Every day 09:00": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Config": { "main": [[{ "node": "Claude - write drafts", "type": "main", "index": 0 }]] },
+    "Claude - write drafts": { "main": [[{ "node": "Split into posts", "type": "main", "index": 0 }]] },
+    "Split into posts": { "main": [[{ "node": "OpenPost - create DRAFT (never publishes)", "type": "main", "index": 0 }]] },
+    "OpenPost - create DRAFT (never publishes)": { "main": [[{ "node": "Summarize", "type": "main", "index": 0 }]] },
+    "Summarize": { "main": [[{ "node": "Notify on Telegram", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Africa/Lagos" }
+}

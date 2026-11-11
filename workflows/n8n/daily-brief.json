@@ -1,0 +1,142 @@
+{
+  "name": "BB - Daily Tech Brief",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 7 * * *" }] }
+      },
+      "id": "n1",
+      "name": "Every day 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// EDIT THESE VALUES. No secrets here: keys live in n8n Credentials.\nreturn [{ json: {\n  githubUser: 'REPLACE_WITH_GITHUB_USERNAME_OR_ORG',\n  deepseekModel: 'deepseek-chat',\n  claudeModel: 'claude-sonnet-5-5',\n  telegramChatId: 'REPLACE_WITH_TELEGRAM_CHAT_ID',\n  since: new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10)\n}}];"
+      },
+      "id": "n2",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 200]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/search/issues?q=user:{{ $json.githubUser }}+is:open+updated:>={{ $json.since }}&per_page=30",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Accept", "value": "application/vnd.github+json" },
+          { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+        ] }
+      },
+      "id": "n3",
+      "name": "GitHub open issues and PRs (read-only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 100],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "GitHub read-only token" } }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/search/commits?q=author:{{ $json.githubUser }}+committer-date:>={{ $json.since }}&per_page=30",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Accept", "value": "application/vnd.github+json" },
+          { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+        ] }
+      },
+      "id": "n4",
+      "name": "GitHub recent commits (read-only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "GitHub read-only token" } }
+    },
+    {
+      "parameters": { "mode": "combine", "combineBy": "combineByPosition" },
+      "id": "n5",
+      "name": "Combine",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Config').first().json;\n// Read each search result by node name (the merge only pairs them up).\nconst commits = ($('GitHub recent commits (read-only)').first().json.items || []).slice(0, 30)\n  .map(c => `- ${c.repository.name}: ${c.commit.message.split('\\n')[0]}`);\nconst openList = ($('GitHub open issues and PRs (read-only)').first().json.items || []).slice(0, 30)\n  .map(i => `- ${i.pull_request ? 'PR' : 'Issue'} ${i.repository_url.split('/').slice(-1)[0]}#${i.number}: ${i.title}`);\nreturn [{ json: { ...cfg, facts: `Commits in last 24h:\\n${commits.join('\\n') || '(none)'}\\n\\nOpen issues/PRs updated recently:\\n${openList.join('\\n') || '(none)'}` } }];"
+      },
+      "id": "n6",
+      "name": "Build facts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $json.deepseekModel, messages: [ { role: 'system', content: 'You summarize software work. Be factual. Do not invent items.' }, { role: 'user', content: 'Summarize these GitHub facts in under 120 words, grouped by project:\\n\\n' + $json.facts } ] }) }}"
+      },
+      "id": "n7",
+      "name": "DeepSeek - summarize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 200],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "DeepSeek API key" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "anthropic-version", "value": "2023-06-01" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $('Build facts').first().json.claudeModel, max_tokens: 700, messages: [ { role: 'user', content: 'You are my engineering chief of staff. From this summary of yesterday, write today\\'s plan: (1) top 3 priorities, (2) a short task list with the project name on each, (3) anything blocked or at risk. Keep it under 200 words and only use facts given.\\n\\nSUMMARY:\\n' + $json.choices[0].message.content } ] }) }}"
+      },
+      "id": "n8",
+      "name": "Claude - today's plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 200],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "Anthropic API key (header x-api-key)" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Build facts').first().json.telegramChatId }}",
+        "text": "={{ 'Daily brief\\n\\n' + $json.content[0].text }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "id": "n9",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1540, 200],
+      "credentials": { "telegramApi": { "id": null, "name": "Telegram bot" } }
+    }
+  ],
+  "connections": {
+    "Every day 07:00": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Config": { "main": [[
+      { "node": "GitHub open issues and PRs (read-only)", "type": "main", "index": 0 },
+      { "node": "GitHub recent commits (read-only)", "type": "main", "index": 0 }
+    ]] },
+    "GitHub open issues and PRs (read-only)": { "main": [[{ "node": "Combine", "type": "main", "index": 0 }]] },
+    "GitHub recent commits (read-only)": { "main": [[{ "node": "Combine", "type": "main", "index": 1 }]] },
+    "Combine": { "main": [[{ "node": "Build facts", "type": "main", "index": 0 }]] },
+    "Build facts": { "main": [[{ "node": "DeepSeek - summarize", "type": "main", "index": 0 }]] },
+    "DeepSeek - summarize": { "main": [[{ "node": "Claude - today's plan", "type": "main", "index": 0 }]] },
+    "Claude - today's plan": { "main": [[{ "node": "Send to Telegram", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Africa/Lagos" }
+}
