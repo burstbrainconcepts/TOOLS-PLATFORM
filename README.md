@@ -2,7 +2,7 @@
 
 One repo, three Railway services, one Postgres. See [CLAUDE.md](CLAUDE.md) for the rules.
 
-The separate [`automation/`](automation/README.md) folder contains Git submodules for workflow orchestration, GitHub access, video rendering, and social content. They are source checkouts only; see its README for the staged integration plan. They are not deployed by the Railway service setup below.
+The separate [`automation/`](automation/README.md) folder contains Git submodules for workflow orchestration, GitHub access, video rendering, and social content. They are source checkouts only; see its README for the staged integration plan. n8n and OpenPost run on Railway from their official Docker images (see CLAUDE.md, Railway mapping), not from these checkouts. Importable n8n workflows are in [`workflows/`](workflows/README.md). The three service shells below are placeholders.
 
 ## 1. Push to GitHub
 ```

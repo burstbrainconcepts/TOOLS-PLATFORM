@@ -1,6 +1,6 @@
 # CLAUDE.md — bb-tools-platform
 
-Monorepo for Burst Brain Concepts engineering tools. It contains three isolated Railway service shells plus a separate `automation/` toolkit source collection. The automation projects are independent upstream repositories, not services and not yet integrated.
+Monorepo for Burst Brain Concepts engineering tools. It contains three isolated Railway service shells plus a separate `automation/` toolkit source collection. The automation projects are independent upstream repositories (source reference only). **n8n and OpenPost are deployed on Railway from their official Docker images** (`docker.n8n.io/n8nio/n8n`, `ghcr.io/getopenpost/openpost`), not from the submodule sources. Importable n8n workflows live in `workflows/` and are the only glue between them.
 
 ## Layout (strict separation)
 
@@ -41,7 +41,11 @@ Each service folder is self-contained: own `Dockerfile`, `railway.json`, `server
 | spec-kit | `/services/spec-kit` | `/services/spec-kit/railway.json` | speckit.bbmeet.site |
 | artemis | `/services/artemis` | `/services/artemis/railway.json` | artemis.bbmeet.site |
 | xtool | `/services/xtool` | `/services/xtool/railway.json` | xtool.bbmeet.site |
+| n8n | image `docker.n8n.io/n8nio/n8n` | — | Railway-generated (custom domain TBD) |
+| openpost | image `ghcr.io/getopenpost/openpost` + volume `/data` | — | Railway-generated (custom domain TBD) |
 | Postgres | (Railway plugin) | — | internal only |
+
+n8n uses the shared Postgres with table prefix `n8n_` (rule 3). OpenPost uses SQLite on its volume. OpenPost needs `RAILWAY_RUN_UID=0` (volume is root-owned) and `OPENPOST_TRUSTED_PROXY_CIDRS` set to Railway's internal ranges, or logins fail with "cross-site session request rejected". Secrets (`N8N_ENCRYPTION_KEY`, `OPENPOST_JWT_SECRET`, `OPENPOST_ENCRYPTION_KEY`, license/API keys) live only in Railway variables.
 
 Variables:
 - Every service: `SERVICE_NAME`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`
