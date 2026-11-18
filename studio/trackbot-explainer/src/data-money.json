@@ -1,0 +1,59 @@
+{
+  "tag": "HOW MONEY MOVES",
+  "fps": 30,
+  "total": 1425,
+  "title": "What really happens when you send money?",
+  "brand": "VAULT ID",
+  "cta": "VAULT",
+  "scenes": [
+    {
+      "kind": "hook",
+      "text": "You tap send. Your money leaves. But what if the app crashes halfway?",
+      "audio": "voice/m0.wav",
+      "audioFrames": 193,
+      "frames": 211
+    },
+    {
+      "kind": "check",
+      "text": "First, the server checks that you really have enough money.",
+      "audio": "voice/m1.wav",
+      "audioFrames": 134,
+      "frames": 152
+    },
+    {
+      "kind": "begin",
+      "text": "Then it opens a transaction. Every step must work, or none of them do.",
+      "audio": "voice/m2.wav",
+      "audioFrames": 198,
+      "frames": 216
+    },
+    {
+      "kind": "debit",
+      "text": "It takes the money out of your balance, and writes a record in the history.",
+      "audio": "voice/m3.wav",
+      "audioFrames": 165,
+      "frames": 183
+    },
+    {
+      "kind": "rollback",
+      "text": "If anything fails here, it rolls back. Your balance goes back, as if nothing happened.",
+      "audio": "voice/m4.wav",
+      "audioFrames": 217,
+      "frames": 235
+    },
+    {
+      "kind": "commit",
+      "text": "If everything works, it commits. Now the change is locked in, for good.",
+      "audio": "voice/m5.wav",
+      "audioFrames": 194,
+      "frames": 212
+    },
+    {
+      "kind": "outro",
+      "text": "I built this in my own banking app. Comment VAULT, and I will show you how.",
+      "audio": "voice/m6.wav",
+      "audioFrames": 198,
+      "frames": 216
+    }
+  ]
+}

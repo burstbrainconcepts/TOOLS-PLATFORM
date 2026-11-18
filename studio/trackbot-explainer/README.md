@@ -5,6 +5,7 @@ Self-contained Remotion video (no external APIs). Draft only: review before any 
 ```bash
 npm install
 npm run voice     # script.json -> espeak-ng voice -> src/data.json (needs espeak-ng + ffprobe)
+node scripts/build-voice.mjs script-money.json src/data-money.json m   # second video
 npm run render    # out/trackbot-explainer.mp4 (1080x1920)
 ```
 

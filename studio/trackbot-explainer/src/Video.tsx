@@ -2,22 +2,22 @@ import React from 'react';
 import { AbsoluteFill, Audio, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
 import data from './data.json';
 
-const C = { bg: '#FBF7EF', ink: '#1B1B1F', accent: '#FF5A36', blue: '#2B6CFF', muted: '#D9D2C2', green: '#1FA66A' };
-const FONT = '"Helvetica Neue", Arial, sans-serif';
+export const C = { bg: '#FBF7EF', ink: '#1B1B1F', accent: '#FF5A36', blue: '#2B6CFF', muted: '#D9D2C2', green: '#1FA66A' };
+export const FONT = '"Helvetica Neue", Arial, sans-serif';
 type P = { f: number; fps: number };
-const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
-const ease = (f: number, a: number, b: number, from = 0, to = 1) =>
+export const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
+export const ease = (f: number, a: number, b: number, from = 0, to = 1) =>
   interpolate(f, [a, b], [from, to], { ...clamp, easing: Easing.inOut(Easing.cubic) });
 
 // ---------- shared drawing helpers ----------
-const Phone: React.FC<{ x: number; y: number; s?: number; children?: React.ReactNode; glow?: boolean }> = ({ x, y, s = 1, children, glow }) => (
+export const Phone: React.FC<{ x: number; y: number; s?: number; children?: React.ReactNode; glow?: boolean }> = ({ x, y, s = 1, children, glow }) => (
   <g transform={`translate(${x} ${y}) scale(${s})`}>
     <rect x={-130} y={-230} width={260} height={460} rx={36} fill="#fff" stroke={glow ? C.accent : C.ink} strokeWidth={8} />
     <rect x={-30} y={-212} width={60} height={10} rx={5} fill={C.ink} />
     {children}
   </g>
 );
-const Pin: React.FC<{ x: number; y: number; color?: string; s?: number }> = ({ x, y, color = C.accent, s = 1 }) => (
+export const Pin: React.FC<{ x: number; y: number; color?: string; s?: number }> = ({ x, y, color = C.accent, s = 1 }) => (
   <g transform={`translate(${x} ${y}) scale(${s})`}>
     <path d="M0 0 C-30 -40 -34 -60 -34 -72 A34 34 0 1 1 34 -72 C34 -60 30 -40 0 0Z" fill={color} />
     <circle cx={0} cy={-72} r={12} fill="#fff" />
@@ -34,7 +34,7 @@ const Server: React.FC<{ x: number; y: number; pulse?: number }> = ({ x, y, puls
     ))}
   </g>
 );
-const Label: React.FC<{ x: number; y: number; t: string; size?: number; color?: string }> = ({ x, y, t, size = 44, color = C.ink }) => (
+export const Label: React.FC<{ x: number; y: number; t: string; size?: number; color?: string }> = ({ x, y, t, size = 44, color = C.ink }) => (
   <text x={x} y={y} textAnchor="middle" fontFamily={FONT} fontSize={size} fontWeight={800} fill={color}>{t}</text>
 );
 
@@ -283,14 +283,16 @@ const Captions: React.FC<{ text: string; frame: number; audioFrames: number }> =
   );
 };
 
-const SceneView: React.FC<{ s: (typeof data.scenes)[number] }> = ({ s }) => {
+type D = typeof data;
+export type RenderFn = (kind: string, f: number, extra: { brand: string; cta: string }) => React.ReactNode;
+const SceneView: React.FC<{ s: D['scenes'][number]; d: D; render: RenderFn }> = ({ s, d, render }) => {
   const f = useCurrentFrame();
   const fade = interpolate(f, [0, 8, s.frames - 8, s.frames], [0, 1, 1, 0], clamp);
   return (
     <AbsoluteFill>
       <Audio src={staticFile(s.audio)} />
-      <div style={{ position: 'absolute', top: 70, left: 0, right: 0, textAlign: 'center', fontFamily: FONT, fontWeight: 800, fontSize: 36, letterSpacing: 6, color: C.muted }}>{data.brand} · LIVE TRACKING</div>
-      <div style={{ position: 'absolute', top: 140, left: 0, right: 0, height: 1500, opacity: fade }}>{renderScene(s.kind, f, { brand: data.brand, cta: data.cta })}</div>
+      <div style={{ position: 'absolute', top: 70, left: 0, right: 0, textAlign: 'center', fontFamily: FONT, fontWeight: 800, fontSize: 36, letterSpacing: 6, color: C.muted }}>{d.brand} · {d.tag}</div>
+      <div style={{ position: 'absolute', top: 140, left: 0, right: 0, height: 1500, opacity: fade }}>{render(s.kind, f, { brand: d.brand, cta: d.cta })}</div>
       <div style={{ position: 'absolute', bottom: 150, left: 0, right: 0, height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Captions text={s.text} frame={f} audioFrames={s.audioFrames} />
       </div>
@@ -298,15 +300,16 @@ const SceneView: React.FC<{ s: (typeof data.scenes)[number] }> = ({ s }) => {
   );
 };
 
-export const Video: React.FC = () => {
+export const makeVideo = (d: D, render: RenderFn): React.FC => () => {
   let from = 0;
   return (
     <AbsoluteFill style={{ background: C.bg }}>
-      {data.scenes.map((s, i) => {
-        const el = <Sequence key={i} from={from} durationInFrames={s.frames}><SceneView s={s} /></Sequence>;
+      {d.scenes.map((s, i) => {
+        const el = <Sequence key={i} from={from} durationInFrames={s.frames}><SceneView s={s} d={d} render={render} /></Sequence>;
         from += s.frames;
         return el;
       })}
     </AbsoluteFill>
   );
 };
+export const Video = makeVideo(data, (k, f, e) => renderScene(k, f, e));
