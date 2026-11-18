@@ -1,0 +1,65 @@
+{
+  "fps": 30,
+  "total": 1684,
+  "title": "How does a delivery tracker know where your order is?",
+  "brand": "TRACKBOT",
+  "cta": "TRACK",
+  "scenes": [
+    {
+      "kind": "hook",
+      "text": "Your order is on the road. So how does the shop know exactly where it is?",
+      "audio": "voice/s0.wav",
+      "audioFrames": 194,
+      "frames": 212
+    },
+    {
+      "kind": "start",
+      "text": "First, the delivery person taps start. Their phone asks permission to share its location.",
+      "audio": "voice/s1.wav",
+      "audioFrames": 225,
+      "frames": 243
+    },
+    {
+      "kind": "gps",
+      "text": "The phone works out where it is, by listening to signals from satellites in space.",
+      "audio": "voice/s2.wav",
+      "audioFrames": 198,
+      "frames": 216
+    },
+    {
+      "kind": "send",
+      "text": "Every few seconds, it sends that position to the shop's server.",
+      "audio": "voice/s3.wav",
+      "audioFrames": 164,
+      "frames": 182
+    },
+    {
+      "kind": "route",
+      "text": "The server then works out the road route, and the next turn.",
+      "audio": "voice/s4.wav",
+      "audioFrames": 154,
+      "frames": 172
+    },
+    {
+      "kind": "push",
+      "text": "And it pushes every new position straight to your screen. No refreshing.",
+      "audio": "voice/s5.wav",
+      "audioFrames": 177,
+      "frames": 195
+    },
+    {
+      "kind": "arrive",
+      "text": "The dot moves on the map until it reaches your door. Then you tap, I received my order.",
+      "audio": "voice/s6.wav",
+      "audioFrames": 219,
+      "frames": 237
+    },
+    {
+      "kind": "outro",
+      "text": "I built this for my final year project. Comment TRACK, and I will show you how.",
+      "audio": "voice/s7.wav",
+      "audioFrames": 209,
+      "frames": 227
+    }
+  ]
+}
