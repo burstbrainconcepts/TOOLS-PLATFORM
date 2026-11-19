@@ -154,7 +154,7 @@ export const Push: React.FC<P> = ({ f }) => {
       <line x1={300} y1={330} x2={600} y2={420} stroke={K.muted} strokeWidth={6} strokeDasharray="4 16" />
       {[0, 1, 2].map((i) => { const k = ((f + i * 14) % 42) / 42; return <circle key={i} cx={300 + 300 * k} cy={330 + 90 * k} r={13} fill={K.accent} opacity={1 - k * 0.4} />; })}
       <g transform="translate(300 940) scale(1.5)"><Figure frame={f} skin="#8D5524" hairStyle="puff" shirt={K.blue} emotion="happy" armR={98} armL={10} legL={5} legR={-5} /></g>
-      <PhoneUI x={780} y={500} s={1.5} glow>
+      <PhoneUI x={720} y={500} s={1.5} glow>
         <clipPath id="scr2"><rect x={-110} y={-190} width={220} height={380} rx={20} /></clipPath>
         <g clipPath="url(#scr2)">
           <rect x={-110} y={-190} width={220} height={380} fill={K.bg} />
@@ -164,7 +164,7 @@ export const Push: React.FC<P> = ({ f }) => {
           <rect x={-60} y={-176} width={120} height={36} rx={18} fill={K.green} /><text x={0} y={-151} textAnchor="middle" fontFamily={FONT} fontWeight={900} fontSize={22} fill="#fff">● LIVE</text>
         </g>
       </PhoneUI>
-      <rect x={560} y={870} width={440} height={64} rx={32} fill={K.ink} /><text x={780} y={914} textAnchor="middle" fontFamily={FONT} fontWeight={800} fontSize={30} fill="#fff">no refresh needed</text>
+      <rect x={500} y={870} width={440} height={64} rx={32} fill={K.ink} /><text x={720} y={914} textAnchor="middle" fontFamily={FONT} fontWeight={800} fontSize={30} fill="#fff">no refresh needed</text>
     </Panel>
   </>);
 };

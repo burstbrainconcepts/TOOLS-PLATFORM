@@ -23,6 +23,12 @@ const distToRoute = (x: number, z: number) => Math.min(...ROUTE.slice(1).map((p,
   return Math.hypot(x - (ax + t * (bx - ax)), z - (az + t * (bz - az)));
 }));
 
+const distToOthers = (x: number, z: number, skip: number) => Math.min(...ROUTE.slice(1).map((p, i) => {
+  if (i === skip) return 1e9;
+  const [ax, az] = ROUTE[i]; const [bx, bz] = p;
+  const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2)));
+  return Math.hypot(x - (ax + t * (bx - ax)), z - (az + t * (bz - az)));
+}));
 const windowTexture = (floors: number, seed: number, wall: string) => {
   const c = document.createElement('canvas'); c.width = 128; c.height = 64 * floors;
   const g = c.getContext('2d')!;
@@ -77,6 +83,8 @@ const Scooter: React.FC<{ spin: number }> = ({ spin }) => (
 );
 
 export const City3D: React.FC<{ width: number; height: number; progress?: [number, number]; dusk?: boolean }> = ({ width, height, progress = [0.02, 0.98], dusk = false }) => {
+  const Q = 0.67; // render scale: fewer pixels for the CPU renderer
+  const rw = Math.round(width * Q), rh = Math.round(height * Q);
   const frame = useCurrentFrame();
   const tex = useMemo(() => [1, 2, 3].map((fl, i) => ({ map: windowTexture(fl * 2, i + 3, dusk ? '#8A6A66' : '#B8C4D4'), em: emissiveTexture(fl * 2, i + 3) })), [dusk]);
   const buildings = useMemo(() => {
@@ -106,32 +114,34 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
     ROUTE.slice(1).forEach((p, i) => {
       const [ax, az] = ROUTE[i]; const dx = p[0] - ax, dz = p[1] - az; const L = lens[i]; const nx = -dz / L, nz = dx / L; const yaw = Math.atan2(dx, dz);
       for (let s = 3; s < L; s += 8) for (const side of [-1, 1]) {
-        const px = ax + (dx / L) * s + nx * 4.6 * side, pz = az + (dz / L) * s + nz * 4.6 * side;
+        const px = ax + (dx / L) * s + nx * 5.3 * side, pz = az + (dz / L) * s + nz * 5.3 * side;
+        if (distToOthers(px, pz, i) < 7) continue;
         if (Math.floor(s / 8) % 2) trees.push([px, pz]); else lamps.push([px, pz, side]);
-        if (rand(i * 7 + s + side) > 0.72) cars.push({ x: ax + (dx / L) * s + nx * 2.6 * side, z: az + (dz / L) * s + nz * 2.6 * side, yaw, c: ['#e0e0e0', '#c0392b', '#2b6cff', '#f5b820'][Math.floor(rand(s + side) * 4)] });
+        if (rand(i * 7 + s + side) > 0.72 && distToOthers(ax + (dx / L) * s, az + (dz / L) * s, i) > 9) cars.push({ x: ax + (dx / L) * s + nx * 2.6 * side, z: az + (dz / L) * s + nz * 2.6 * side, yaw, c: ['#e0e0e0', '#c0392b', '#2b6cff', '#f5b820'][Math.floor(rand(s + side) * 4)] });
       }
     });
     return { trees, lamps, cars };
   }, []);
 
   const t = interpolate(frame, [0, 170], progress, { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) });
-  const me = at(t); const ahead = at(Math.min(1, t + 0.035));
+  const me = at(t); const ahead = { x: me.x + Math.sin(me.yaw) * 1.2, z: me.z + Math.cos(me.yaw) * 1.2 };
   const dirx = Math.sin(me.yaw), dirz = Math.cos(me.yaw);
   const back = at(Math.max(0, t - 0.055));
-  const sway = Math.sin(frame / 55) * 2.6;
+  const sway = Math.sin(frame / 55) * 1.0;
   const camX = back.x + Math.cos(back.yaw) * sway, camZ = back.z - Math.sin(back.yaw) * sway;
   const sky = dusk ? '#f2a07a' : '#bcd9f5';
   const endX = ROUTE[ROUTE.length - 1][0], endZ = ROUTE[ROUTE.length - 1][1];
   const pulse = (frame % 50) / 50;
 
   return (
-    <ThreeCanvas width={width} height={height} shadows camera={{ position: [camX, 6.2, camZ], fov: 56, near: 0.1, far: 220 }}
-      onCreated={({ camera }) => camera.lookAt(ahead.x, 1.2, ahead.z)}>
+    <div style={{ width, height, overflow: 'hidden' }}><div style={{ width: rw, height: rh, transform: `scale(${1 / Q})`, transformOrigin: '0 0' }}>
+    <ThreeCanvas width={rw} height={rh} shadows camera={{ position: [camX, 7.4, camZ], fov: 56, near: 0.1, far: 220 }}
+      onCreated={({ camera }) => camera.lookAt(ahead.x, 1.0, ahead.z)}>
       <CameraRig cx={camX} cz={camZ} tx={ahead.x} tz={ahead.z} />
       <color attach="background" args={[sky]} />
       <fog attach="fog" args={[sky, 38, 120]} />
       <hemisphereLight args={[dusk ? '#ffd7b0' : '#dff0ff', '#7a6a60', dusk ? 0.8 : 1.0]} />
-      <directionalLight position={[me.x + 24, 30, me.z + 14]} intensity={dusk ? 1.6 : 2.2} color={dusk ? '#ffb27a' : '#fff4dc'} castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-40} shadow-camera-right={40} shadow-camera-top={40} shadow-camera-bottom={-40} shadow-camera-near={1} shadow-camera-far={120} />
+      <directionalLight position={[me.x + 24, 30, me.z + 14]} intensity={dusk ? 1.6 : 2.2} color={dusk ? '#ffb27a' : '#fff4dc'} castShadow shadow-mapSize={[768, 768]} shadow-camera-left={-40} shadow-camera-right={40} shadow-camera-top={40} shadow-camera-bottom={-40} shadow-camera-near={1} shadow-camera-far={120} />
       {/* ground */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow><planeGeometry args={[400, 400]} /><meshStandardMaterial color={dusk ? '#6b5a58' : '#a9b3a0'} roughness={1} /></mesh>
       {/* roads, sidewalks, markings, route glow */}
@@ -165,7 +175,6 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
         <group key={i} position={[x, 0, z]}>
           <mesh position={[0, 2.4, 0]} castShadow><cylinderGeometry args={[0.07, 0.09, 4.8, 8]} /><meshStandardMaterial color="#2a2a2f" /></mesh>
           <mesh position={[-side * 0.5, 4.8, 0]}><sphereGeometry args={[0.28, 12, 12]} /><meshStandardMaterial color="#fff3c4" emissive="#ffe08a" emissiveIntensity={dusk ? 3 : 1.2} /></mesh>
-          {dusk && <pointLight position={[-side * 0.5, 4.6, 0]} intensity={14} distance={11} color="#ffd9a0" />}
         </group>
       ))}
       {/* parked cars */}
@@ -187,13 +196,14 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
       <group position={[me.x, 0, me.z]} rotation={[0, me.yaw, 0]}><Scooter spin={frame * 0.9} /></group>
       <mesh position={[me.x - dirx * 0.2, 0.01, me.z - dirz * 0.2]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[1.6 + pulse, 1.8 + pulse, 32]} /><meshBasicMaterial color="#2b6cff" transparent opacity={0.7 * (1 - pulse)} /></mesh>
     </ThreeCanvas>
+    </div></div>
   );
 };
 
 import { useThree } from '@react-three/fiber';
 const CameraRig: React.FC<{ cx: number; cz: number; tx: number; tz: number }> = ({ cx, cz, tx, tz }) => {
   const { camera } = useThree();
-  camera.position.set(cx, 6.2, cz);
-  camera.lookAt(tx, 1.2, tz);
+  camera.position.set(cx, 7.4, cz);
+  camera.lookAt(tx, 1.0, tz);
   return null;
 };
