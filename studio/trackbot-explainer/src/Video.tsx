@@ -255,6 +255,8 @@ export const renderScene = (kind: string, f: number, extra: { brand: string; cta
   const p = { f, fps: 30 };
   switch (kind) {
     case 'hook': return <V2.Hook f={f} />;
+    case 'wait': return <V2.Wait f={f} />;
+    case 'confirm': return <V2.Confirm f={f} />;
     case 'start': return <V2.Start f={f} />;
     case 'gps': return <V2.Gps f={f} />;
     case 'send': return <V2.Send f={f} />;
@@ -277,9 +279,9 @@ const Captions: React.FC<{ text: string; frame: number; audioFrames: number }> =
   const start = Math.floor(cur / 4) * 4;
   const chunk = words.slice(start, start + 4);
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 18, padding: '0 60px' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 18, padding: '22px 44px', background: 'rgba(255,255,255,0.9)', borderRadius: 44, border: '6px solid #1B1B1F', maxWidth: 980, boxShadow: '0 10px 30px rgba(0,0,0,0.25)' }}>
       {chunk.map((w, i) => (
-        <span key={i} style={{ fontFamily: FONT, fontWeight: 900, fontSize: 84, color: start + i === cur ? C.accent : C.ink, textTransform: 'uppercase' }}>{w}</span>
+        <span key={i} style={{ fontFamily: FONT, fontWeight: 900, fontSize: 78, color: start + i === cur ? C.accent : C.ink, textTransform: 'uppercase' }}>{w}</span>
       ))}
     </div>
   );
@@ -287,18 +289,17 @@ const Captions: React.FC<{ text: string; frame: number; audioFrames: number }> =
 
 type D = typeof data;
 export type RenderFn = (kind: string, f: number, extra: { brand: string; cta: string }) => React.ReactNode;
-const SceneView: React.FC<{ s: D['scenes'][number]; d: D; render: RenderFn; character: CharacterType }> = ({ s, d, render, character }) => {
+const SceneView: React.FC<{ s: D['scenes'][number]; d: D; render: RenderFn }> = ({ s, d, render }) => {
   const f = useCurrentFrame();
   const fade = interpolate(f, [0, 8, s.frames - 8, s.frames], [0, 1, 1, 0], clamp);
   return (
     <AbsoluteFill>
       <Audio src={staticFile(s.audio)} />
-      <div style={{ position: 'absolute', top: 70, left: 0, right: 0, textAlign: 'center', fontFamily: FONT, fontWeight: 800, fontSize: 36, letterSpacing: 6, color: C.muted }}>{d.brand} · {d.tag}</div>
-      <div style={{ position: 'absolute', top: 110, left: 0, right: 0, height: 930, opacity: fade, transform: `translateX(${interpolate(f, [0, 14], [60, 0], clamp)}px) scale(${1 + f * 0.00022})`, transformOrigin: '50% 50%' }}>{render(s.kind, f, { brand: d.brand, cta: d.cta })}</div>
-      <div style={{ position: 'absolute', top: 1040, left: 0, right: 0, height: 540 }}>
-        <Host type={character} mouth={s.mouth[Math.min(f, s.mouth.length - 1)] ?? 0} emotion={(s as { emotion?: Emotion }).emotion ?? 'neutral'} frame={f} />
-      </div>
-      <div style={{ position: 'absolute', bottom: 60, left: 0, right: 0, height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'absolute', inset: 0, opacity: fade, transform: `translateX(${interpolate(f, [0, 12], [70, 0], clamp)}px) scale(${1 + f * 0.00032})`, transformOrigin: `${40 + (s.frames % 3) * 20}% 60%` }}>{render(s.kind, f, { brand: d.brand, cta: d.cta })}</div>
+      {/* cinematic grade: vignette + warm light bloom */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(20,10,30,0.38) 100%)' }} />
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 85% 8%, rgba(255,236,190,0.35), rgba(255,236,190,0) 45%)' }} />
+      <div style={{ position: 'absolute', bottom: 150, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Captions text={s.text} frame={f} audioFrames={s.audioFrames} />
       </div>
     </AbsoluteFill>
@@ -312,7 +313,7 @@ export const makeVideo = (d: D, render: RenderFn): React.FC<VideoProps> => ({ ch
   return (
     <AbsoluteFill style={{ background: C.bg }}>
       {d.scenes.map((s, i) => {
-        const el = <Sequence key={i} from={from} durationInFrames={s.frames}><SceneView s={s} d={d} render={render} character={who} /></Sequence>;
+        const el = <Sequence key={i} from={from} durationInFrames={s.frames}><SceneView s={s} d={d} render={render} /></Sequence>;
         from += s.frames;
         return el;
       })}

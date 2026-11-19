@@ -5,10 +5,10 @@ import { FONT, Figure, K, Panel } from './Acting';
 type P = { f: number };
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 const ease = (f: number, a: number, b: number, from = 0, to = 1) => interpolate(f, [a, b], [from, to], { ...clamp, easing: Easing.inOut(Easing.cubic) });
-const S = (c: React.ReactNode) => <svg viewBox="0 0 1080 1000" width="100%" height="100%">{c}</svg>;
+const S = (c: React.ReactNode) => <svg viewBox="0 0 1080 1920" width="100%" height="100%">{c}</svg>;
 
 const Bank: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => (
-  <Panel x={20} y={10} w={1040} h={980} id={id}>
+  <Panel id={id} top="#EEE8D8" bottom="#D9D2C2" deco="room">
     <rect width={1040} height={980} fill="#EEE8D8" />
     <rect y={820} width={1040} height={160} fill="#D9D2C2" /><rect y={812} width={1040} height={10} fill="#C9C1AE" />
     {/* columns + arched windows */}
@@ -44,15 +44,15 @@ const Pill: React.FC<{ x: number; y: number; w: number; t: string; c: string; si
 const SENDER = { skin: '#8D5524', hairStyle: 'puff' as const, shirt: K.blue };
 const FRIEND = { skin: '#6B4226', hairStyle: 'short' as const, shirt: K.green };
 
-export const MHook: React.FC<P> = ({ f }) => {
-  const k = (f % 70) / 70;
+export const MHook: React.FC<P & { mode?: 'tap' | 'crash' }> = ({ f, mode = 'tap' }) => {
+  const k = mode === 'crash' ? 0.5 : (f % 70) / 70;
   const q = spring({ frame: f - 20, fps: 30, config: { damping: 7 } });
   return S(<Bank id="m1">
-    <g transform="translate(230 900) scale(1.5)"><Figure frame={f} {...SENDER} emotion="worried" armR={46} armL={12} phone legL={5} legR={-5} /></g>
+    <g transform="translate(230 900) scale(1.5)"><Figure frame={f} {...SENDER} emotion={mode === 'crash' ? 'worried' : 'neutral'} armR={46} armL={12} phone legL={5} legR={-5} /></g>
     <g transform="translate(830 900) scale(1.5)"><Figure frame={f} {...FRIEND} emotion="neutral" armR={12} armL={12} legL={5} legR={-5} /></g>
     <Coin x={350 + 330 * k} y={470 - 150 * Math.sin(k * Math.PI)} r={30} />
-    <g transform={`translate(520 330) scale(${q * 1.6})`}><Bolt x={0} y={0} /></g>
-    <Pill x={520} y={165} w={480} t="app crashes?" c={K.accent} size={50} />
+    {mode === 'crash' && <><g transform={`translate(520 330) scale(${q * 1.6})`}><Bolt x={0} y={0} /></g>
+    <Pill x={520} y={165} w={480} t="app crashes?" c={K.accent} size={50} /></>}
   </Bank>);
 };
 

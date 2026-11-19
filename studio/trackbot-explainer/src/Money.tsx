@@ -6,7 +6,8 @@ import * as V3 from './Scenes3';
 
 export const MoneyVideo = makeVideo(data as any, (kind, f, e) => {
   switch (kind) {
-    case 'hook': return <V3.MHook f={f} />;
+    case 'tap': return <V3.MHook f={f} mode="tap" />;
+    case 'crash': return <V3.MHook f={f} mode="crash" />;
     case 'check': return <V3.MCheck f={f} />;
     case 'begin': return <V3.MBegin f={f} />;
     case 'debit': return <V3.MDebit f={f} />;

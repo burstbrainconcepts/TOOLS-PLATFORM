@@ -1,4 +1,5 @@
 import React from 'react';
+import { useCurrentFrame } from 'remotion';
 
 // Reusable "acting" pieces: full-body cartoon people, a scooter rider, a scrolling street, a house, a tower.
 export const K = { bg: '#FBF7EF', ink: '#1B1B1F', accent: '#FF5A36', blue: '#2B6CFF', muted: '#D9D2C2', green: '#1FA66A', gold: '#F5B820' };
@@ -33,6 +34,8 @@ export const Figure: React.FC<FigureProps> = ({
   const [rfx, rfy] = endOf(14, -118, legR, 118, 1);
   const m = Math.min(1, talk);
   return (
+    <g>
+      <ellipse cx={0} cy={6} rx={66} ry={12} fill="#000" opacity={0.2} />
     <g transform={`translate(0 ${bob})`}>
       {/* legs */}
       <Limb x={-14} y={-118} a={legL} len={118} w={30} c={pants} side={-1} />
@@ -64,6 +67,7 @@ export const Figure: React.FC<FigureProps> = ({
           : <path d={emotion === 'happy' ? 'M-14 16 Q0 32 14 16' : emotion === 'worried' ? 'M-10 24 Q0 16 10 24' : emotion === 'surprised' ? 'M-5 18 Q0 28 5 18 Q0 12 -5 18Z' : 'M-10 20 Q0 24 10 20'} fill={emotion === 'surprised' ? '#4A1620' : 'none'} stroke={K.ink} strokeWidth={3.5} strokeLinecap="round" />}
         {emotion === 'happy' && [-1, 1].map((s) => <ellipse key={s} cx={s * 26} cy={14} rx={8} ry={5} fill={K.accent} opacity={0.3} />)}
       </g>
+    </g>
     </g>
   );
 };
@@ -122,11 +126,11 @@ export const Street: React.FC<{ frame: number; w: number; h: number; speed?: num
   const road = h - 100;
   return (
     <g>
-      <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={sky0} /><stop offset="1" stopColor={sky1} /></linearGradient></defs>
+      <defs><filter id="blurFar"><feGaussianBlur stdDeviation="2.2" /></filter><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={sky0} /><stop offset="1" stopColor={sky1} /></linearGradient></defs>
       <rect width={w} height={h} fill={`url(#${gid})`} />
       <circle cx={w * 0.78} cy={h * 0.2} r={46} fill={dusk ? '#FFF1C2' : '#FFE9A8'} />
       {[0, 1, 2].map((rep) => (
-        <g key={'f' + rep} transform={`translate(${off(0.25, 960) + rep * 960} 0)`}>
+        <g key={'f' + rep} filter="url(#blurFar)" transform={`translate(${off(0.25, 960) + rep * 960} 0)`}>
           {FAR.map(([x, bw, bh], i) => <rect key={i} x={x} y={road - 20 - bh} width={bw} height={bh + 20} fill={far} />)}
         </g>
       ))}
@@ -175,13 +179,30 @@ export const Tower: React.FC<{ x: number; y: number; frame: number }> = ({ x, y,
   </g>
 );
 
-export const Panel: React.FC<{ x: number; y: number; w: number; h: number; id: string; children: React.ReactNode }> = ({ x, y, w, h, id, children }) => (
-  <g>
-    <clipPath id={id}><rect x={x} y={y} width={w} height={h} rx={36} /></clipPath>
-    <g clipPath={`url(#${id})`}><g transform={`translate(${x} ${y})`}>{children}</g></g>
-    <rect x={x} y={y} width={w} height={h} rx={36} fill="none" stroke={K.ink} strokeWidth={8} />
-  </g>
-);
+// Full-bleed stage: the 1040x980 scene is scaled to the full 1080 width and the sky/wall above and floor/road below are extended.
+export const Panel: React.FC<{ x?: number; y?: number; w?: number; h?: number; id: string; top?: string; bottom?: string; deco?: 'sky' | 'room' | 'none'; children: React.ReactNode }> = ({ id, top = '#CFE8FF', bottom = '#D9D2C2', deco = 'sky', children }) => {
+  const f = useCurrentFrame();
+  const SC = 1.2, TX = -(1040 * 1.2 - 1080) / 2, TY = 270;
+  return (
+    <g>
+      <clipPath id={id}><rect width={1080} height={1920} /></clipPath>
+      <g clipPath={`url(#${id})`}>
+        <rect y={0} width={1080} height={TY + 20} fill={top} />
+        <rect y={TY + 980 * SC - 4} width={1080} height={1920 - (TY + 980 * SC) + 8} fill={bottom} />
+        {deco === 'sky' && [[120, 90, 1.0, 0.18], [700, 190, 1.3, 0.12], [420, 40, 0.8, 0.25], [900, 60, 0.9, 0.2]].map(([x, y, sc, sp], i) => (
+          <g key={i} transform={`translate(${(((Number(x) + f * Number(sp) * 3) % 1500) + 1500) % 1500 - 200} ${y}) scale(${sc})`} opacity={0.9}>
+            <ellipse cx={0} cy={0} rx={90} ry={30} fill="#fff" /><ellipse cx={-50} cy={10} rx={60} ry={24} fill="#fff" /><ellipse cx={55} cy={12} rx={64} ry={24} fill="#fff" />
+          </g>
+        ))}
+        {deco === 'room' && <g opacity={0.9}>
+          {[[150, 70], [700, 90]].map(([x, y], i) => <g key={i} transform={`translate(${x} ${y})`}><rect width={190} height={150} rx={8} fill="#fff" stroke={K.ink} strokeWidth={6} /><rect x={14} y={14} width={162} height={122} fill={i ? '#F5D9B8' : '#CFE4FF'} /><path d={i ? 'M14 120 L70 70 L110 100 L150 60 L176 100 V136 H14Z' : 'M14 136 V90 H50 V60 H90 V100 H130 V70 H176 V136Z'} fill={i ? '#E0A97A' : '#9DB8E0'} /></g>)}
+          <line x1={540} y1={0} x2={540} y2={110} stroke={K.ink} strokeWidth={5} /><path d="M470 150 L610 150 L580 110 L500 110Z" fill={K.gold} stroke={K.ink} strokeWidth={5} />
+        </g>}
+        <g transform={`translate(${TX} ${TY}) scale(${SC})`}>{children}</g>
+      </g>
+    </g>
+  );
+};
 
 export const Bubble: React.FC<{ x: number; y: number; w?: number; h?: number; text: string; color?: string; size?: number }> = ({ x, y, w = 150, h = 120, text, color = K.accent, size = 80 }) => (
   <g transform={`translate(${x} ${y})`}>

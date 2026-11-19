@@ -5,7 +5,12 @@
   "scenes": [
     {
       "kind": "hook",
-      "text": "Your order is on the road. So how does the shop know exactly where it is?",
+      "text": "Your order is on the road.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "wait",
+      "text": "So how does the shop know exactly where it is?",
       "emotion": "surprised"
     },
     {
@@ -35,7 +40,12 @@
     },
     {
       "kind": "arrive",
-      "text": "The dot moves on the map until it reaches your door. Then you tap, I received my order.",
+      "text": "The dot moves on the map until it reaches your door.",
+      "emotion": "happy"
+    },
+    {
+      "kind": "confirm",
+      "text": "Then you tap, I received my order.",
       "emotion": "happy"
     },
     {

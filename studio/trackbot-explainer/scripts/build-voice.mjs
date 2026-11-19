@@ -7,10 +7,11 @@ const [scriptFile = 'script.json', outFile = 'src/data.json', prefix = 's'] = pr
 const script = JSON.parse(readFileSync(scriptFile, 'utf8'));
 const model = process.env.PIPER_MODEL;
 if (!model) { console.error('Set PIPER_MODEL to a Piper .onnx voice file (see README).'); process.exit(2); }
-mkdirSync('public/voice', { recursive: true });
+const VOICE_DIR = process.env.VOICE_DIR ?? 'voice';
+mkdirSync(`public/${VOICE_DIR}`, { recursive: true });
 let total = 0;
 const scenes = script.scenes.map((s, i) => {
-  const file = `public/voice/${prefix}${i}.wav`;
+  const file = `public/${VOICE_DIR}/${prefix}${i}.wav`;
   const raw = file.replace('.wav', '.raw.wav');
   execFileSync('python3', ['-m', 'piper', '-m', model, '-f', raw], { input: s.text });
   // Mastering: 48 kHz, remove rumble, short fades (no clicks at scene joins), loudness to about -16 LUFS.
@@ -35,7 +36,7 @@ const scenes = script.scenes.map((s, i) => {
   const ref = sorted[Math.floor(sorted.length * 0.95)] || 1;
   let prev = 0;
   const mouth = rms.map((r) => { const t = Math.min(1, r / ref); const v = t < 0.12 ? 0 : t; prev = prev * 0.45 + v * 0.55; return Math.round(prev * 100) / 100; });
-  return { ...s, audio: `voice/${prefix}${i}.wav`, audioFrames: Math.ceil(dur * FPS), frames, mouth };
+  return { ...s, audio: `${VOICE_DIR}/${prefix}${i}.wav`, audioFrames: Math.ceil(dur * FPS), frames, mouth };
 });
 writeFileSync(outFile, JSON.stringify({ tag: script.tag ?? '', character: script.character ?? 'ada', fps: FPS, total, title: script.title, brand: script.brand, cta: script.cta, scenes }, null, 2));
 console.log(`${scenes.length} scenes, ${(total / FPS).toFixed(1)}s`);

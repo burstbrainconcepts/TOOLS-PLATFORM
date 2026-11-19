@@ -5,9 +5,9 @@ import { Bubble, FONT, Figure, House, K, Panel, Rider, Street, Tower } from './A
 type P = { f: number };
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 const ease = (f: number, a: number, b: number, from = 0, to = 1) => interpolate(f, [a, b], [from, to], { ...clamp, easing: Easing.inOut(Easing.cubic) });
-const S = (c: React.ReactNode) => <svg viewBox="0 0 1080 1000" width="100%" height="100%">{c}</svg>;
+const S = (c: React.ReactNode) => <svg viewBox="0 0 1080 1920" width="100%" height="100%">{c}</svg>;
 
-const PhoneUI: React.FC<{ x: number; y: number; s: number; children: React.ReactNode; glow?: boolean }> = ({ x, y, s, children, glow }) => (
+export const PhoneUI: React.FC<{ x: number; y: number; s: number; children: React.ReactNode; glow?: boolean }> = ({ x, y, s, children, glow }) => (
   <g transform={`translate(${x} ${y}) scale(${s})`}>
     <rect x={-130} y={-230} width={260} height={460} rx={36} fill="#fff" stroke={glow ? K.accent : K.ink} strokeWidth={8} />
     <rect x={-30} y={-212} width={60} height={10} rx={5} fill={K.ink} />
@@ -15,7 +15,7 @@ const PhoneUI: React.FC<{ x: number; y: number; s: number; children: React.React
   </g>
 );
 
-const Room: React.FC<{ w: number; h: number; dusk?: boolean; f: number }> = ({ w, h, dusk, f }) => (
+export const Room: React.FC<{ w: number; h: number; dusk?: boolean; f: number }> = ({ w, h, dusk, f }) => (
   <g>
     <rect width={w} height={h} fill="#F1EBDD" />
     <rect y={h - 80} width={w} height={80} fill="#D9D2C2" /><rect y={h - 84} width={w} height={8} fill="#C9C1AE" />
@@ -33,22 +33,28 @@ const Room: React.FC<{ w: number; h: number; dusk?: boolean; f: number }> = ({ w
 );
 
 export const Hook: React.FC<P> = ({ f }) => {
-  const q = spring({ frame: f - 25, fps: 30, config: { damping: 7 } });
-  const lines = [0, 1, 2, 3].map((i) => ({ y: 330 + i * 34, o: ((f * 14 + i * 90) % 260) }));
+  const lines = [0, 1, 2, 3, 4].map((i) => ({ y: 640 + i * 46, o: ((f * 16 + i * 90) % 300) }));
+  const pill = spring({ frame: f - 12, fps: 30, config: { damping: 10 } });
   return S(<>
-    <Panel x={20} y={10} w={1040} h={500} id="h1">
-      <Street frame={f} w={1040} h={500} speed={7} dusk />
-      {lines.map((l, i) => <line key={i} x1={300 - l.o} y1={l.y} x2={360 - l.o + 40} y2={l.y} stroke="#fff" strokeWidth={6} strokeLinecap="round" opacity={0.7} />)}
-      <g transform="translate(560 476) scale(1.0)"><Rider frame={f} /></g>
+    <Panel id="h1" top="#FFD3A8" bottom="#3A3A42">
+      <Street frame={f} w={1040} h={980} speed={8} dusk />
+      {lines.map((l, i) => <line key={i} x1={260 - l.o} y1={l.y} x2={340 - l.o + 60} y2={l.y} stroke="#fff" strokeWidth={7} strokeLinecap="round" opacity={0.65} />)}
+      <g transform="translate(560 900) scale(1.55)"><Rider frame={f} /></g>
+      <g transform={`translate(520 190) scale(${pill})`}><rect x={-290} y={-52} width={580} height={104} rx={52} fill={K.ink} /><text x={0} y={16} textAnchor="middle" fontFamily={FONT} fontWeight={900} fontSize={36} fill="#fff">ORDER #204 · ON THE ROAD</text></g>
     </Panel>
-    <Panel x={20} y={530} w={1040} h={460} id="h2">
-      <Room w={1040} h={460} dusk f={f} />
-      <rect x={600} y={240} width={380} height={150} rx={34} fill="#8FA9C9" stroke={K.ink} strokeWidth={6} />
-      <rect x={620} y={190} width={340} height={80} rx={30} fill="#7F9CCB" stroke={K.ink} strokeWidth={6} />
-      <g transform="translate(300 440) scale(1.2)">
-        <Figure frame={f} skin="#8D5524" hairStyle="puff" shirt={K.blue} emotion="worried" armR={44} armL={14} phone legL={5} legR={-5} />
-      </g>
-      <g transform={`translate(470 20) scale(${q})`}><Bubble x={0} y={0} w={190} h={140} text="?" /></g>
+  </>);
+};
+
+export const Wait: React.FC<P> = ({ f }) => {
+  const q = spring({ frame: f - 14, fps: 30, config: { damping: 7 } });
+  return S(<>
+    <Panel id="h2" top="#F1EBDD" bottom="#D9D2C2" deco="room">
+      <Room w={1040} h={980} dusk f={f} />
+      <rect x={560} y={560} width={440} height={330} rx={44} fill="#8FA9C9" stroke={K.ink} strokeWidth={7} />
+      <rect x={590} y={470} width={380} height={170} rx={40} fill="#7F9CCB" stroke={K.ink} strokeWidth={7} />
+      <rect x={640} y={820} width={30} height={70} fill={K.ink} /><rect x={890} y={820} width={30} height={70} fill={K.ink} />
+      <g transform="translate(300 900) scale(1.75)"><Figure frame={f} skin="#8D5524" hairStyle="puff" shirt={K.blue} emotion="worried" armR={50} armL={14} phone legL={5} legR={-5} /></g>
+      <g transform={`translate(440 120) scale(${q * 1.5})`}><Bubble x={0} y={0} w={190} h={140} text="?" /></g>
     </Panel>
   </>);
 };
@@ -59,7 +65,7 @@ export const Start: React.FC<P> = ({ f }) => {
   const allow = ease(f, 140, 150) * (1 - ease(f, 155, 165));
   const ring = ((f - 40) % 60) / 60;
   return S(<>
-    <Panel x={20} y={10} w={1040} h={980} id="s1">
+    <Panel x={20} y={10} w={1040} h={980} id="s1" bottom="#D9D2C2">
       <Street frame={f} w={1040} h={980} speed={0} />
       <rect y={800} width={1040} height={180} fill="#D9D2C2" />
       <g transform="translate(250 930) scale(1.55)">
@@ -84,7 +90,7 @@ export const Start: React.FC<P> = ({ f }) => {
 export const Gps: React.FC<P> = ({ f }) => {
   const sats: [number, number][] = [[170, 120], [520, 70], [870, 120]];
   return S(<>
-    <Panel x={20} y={10} w={1040} h={980} id="g1">
+    <Panel x={20} y={10} w={1040} h={980} id="g1" bottom="#3A3A42">
       <Street frame={f} w={1040} h={980} speed={3} />
       {sats.map(([x, y], i) => {
         const k = ((f + i * 16) % 60) / 60;
@@ -108,7 +114,7 @@ export const Gps: React.FC<P> = ({ f }) => {
   </>);
 };
 
-const Server: React.FC<{ x: number; y: number; s?: number; f: number }> = ({ x, y, s = 1, f }) => (
+export const Server: React.FC<{ x: number; y: number; s?: number; f: number }> = ({ x, y, s = 1, f }) => (
   <g transform={`translate(${x} ${y}) scale(${s})`}>
     {[0, 1, 2].map((i) => (
       <g key={i}><rect x={-120} y={-130 + i * 90} width={240} height={76} rx={14} fill="#fff" stroke={K.ink} strokeWidth={7} />
@@ -121,7 +127,7 @@ export const Send: React.FC<P> = ({ f }) => {
   const path: [number, number][] = [[300, 560], [560, 410], [850, 700]];
   const at = (t: number): [number, number] => t < 0.5 ? [path[0][0] + (path[1][0] - path[0][0]) * t * 2, path[0][1] + (path[1][1] - path[0][1]) * t * 2] : [path[1][0] + (path[2][0] - path[1][0]) * (t - 0.5) * 2, path[1][1] + (path[2][1] - path[1][1]) * (t - 0.5) * 2];
   return S(<>
-    <Panel x={20} y={10} w={1040} h={980} id="n1">
+    <Panel x={20} y={10} w={1040} h={980} id="n1" bottom="#D9D2C2">
       <Street frame={f} w={1040} h={980} speed={0} />
       <rect y={820} width={1040} height={160} fill="#D9D2C2" />
       <g transform="translate(180 900) scale(1.3)"><Figure frame={f} skin="#6B4226" hairStyle="helmet" shirt={K.accent} emotion="happy" armR={68} armL={10} phone legL={4} legR={-4} /></g>
@@ -142,7 +148,7 @@ export const Push: React.FC<P> = ({ f }) => {
   let d = t * tot, dx = route[0][0], dy = route[0][1];
   for (let i = 0; i < lens.length; i++) { if (d <= lens[i]) { const k = d / lens[i]; dx = route[i][0] + (route[i + 1][0] - route[i][0]) * k; dy = route[i][1] + (route[i + 1][1] - route[i][1]) * k; break; } d -= lens[i]; }
   return S(<>
-    <Panel x={20} y={10} w={1040} h={980} id="u1">
+    <Panel x={20} y={10} w={1040} h={980} id="u1" top="#F1EBDD" bottom="#D9D2C2" deco="room">
       <Room w={1040} h={980} f={f} />
       <Server x={190} y={300} s={0.8} f={f} />
       <line x1={300} y1={330} x2={600} y2={420} stroke={K.muted} strokeWidth={6} strokeDasharray="4 16" />
@@ -163,7 +169,7 @@ export const Push: React.FC<P> = ({ f }) => {
   </>);
 };
 
-export const Arrive: React.FC<P> = ({ f }) => {
+const ArriveCore: React.FC<P> = ({ f }) => {
   const walk = ease(f, 0, 80, 130, 560);
   const stride = f < 80 ? Math.sin(f / 4) * 24 : 0;
   const handover = ease(f, 84, 106);
@@ -172,7 +178,7 @@ export const Arrive: React.FC<P> = ({ f }) => {
   const done = spring({ frame: f - 118, fps: 30, config: { damping: 9 } });
   const conf = Array.from({ length: 26 }, (_, i) => ({ x: 80 + ((i * 197) % 880), v: 3 + (i % 5), c: [K.accent, K.blue, K.gold, K.green][i % 4], r: i * 31 }));
   return S(<>
-    <Panel x={20} y={10} w={1040} h={980} id="a1">
+    <Panel x={20} y={10} w={1040} h={980} id="a1" bottom="#D9D2C2">
       <Street frame={f} w={1040} h={980} speed={0} />
       <rect y={800} width={1040} height={180} fill="#D9D2C2" />
       <House x={790} y={830} s={1.2} door={door} />
@@ -199,7 +205,7 @@ export const Route2: React.FC<P> = ({ f }) => {
   for (let i = 0; i < lens.length && d > 0; i++) { const k = Math.min(d / lens[i], 1); mx = R[i][0] + (R[i + 1][0] - R[i][0]) * k; my = R[i][1] + (R[i + 1][1] - R[i][1]) * k; pts.push([mx, my]); d -= lens[i]; }
   const banner = ease(f, 66, 84);
   return S(<>
-    <Panel x={20} y={10} w={1040} h={980} id="r1">
+    <Panel x={20} y={10} w={1040} h={980} id="r1" top="#F4F1E8" bottom="#F4F1E8" deco="none">
       <rect width={1040} height={980} fill="#F4F1E8" />
       <rect x={470} y={430} width={250} height={140} rx={20} fill="#CDE8C8" />
       <rect x={810} y={420} width={230} height={560} fill="#CFE4FF" />
@@ -225,7 +231,7 @@ export const Outro2: React.FC<P & { brand: string; cta: string; lock?: boolean }
   const s = spring({ frame: f - 5, fps: 30, config: { damping: 11 } });
   const rx = ease(f, 0, 125, -150, 1250);
   return S(<>
-    <Panel x={20} y={10} w={1040} h={980} id="o1">
+    <Panel x={20} y={10} w={1040} h={980} id="o1" top="#FFD3A8" bottom="#3A3A42">
       <Street frame={f} w={1040} h={980} speed={2} dusk />
       <g transform={`translate(${rx} 930) scale(0.95)`}><Rider frame={f} /></g>
       <rect x={160} y={130} width={720} height={480} rx={50} fill="#fff" opacity={0.92} stroke={K.ink} strokeWidth={7} />
@@ -237,3 +243,6 @@ export const Outro2: React.FC<P & { brand: string; cta: string; lock?: boolean }
     </Panel>
   </>);
 };
+
+export const Arrive: React.FC<P> = ({ f }) => <ArriveCore f={Math.min(f, 78)} />;
+export const Confirm: React.FC<P> = ({ f }) => <ArriveCore f={f + 82} />;

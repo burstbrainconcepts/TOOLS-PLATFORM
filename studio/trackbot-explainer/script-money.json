@@ -5,8 +5,13 @@
   "cta": "VAULT",
   "scenes": [
     {
-      "kind": "hook",
-      "text": "You tap send. Your money leaves. But what if the app crashes halfway?",
+      "kind": "tap",
+      "text": "You tap send. Your money leaves.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "crash",
+      "text": "But what if the app crashes halfway?",
       "emotion": "worried"
     },
     {
