@@ -17,3 +17,7 @@ Set `CHROME_PATH` to a Chrome/headless-shell binary if Remotion cannot find one.
 ## Characters and 3D
 - Host characters: `ada`, `tunde`, `bolt` (`src/Character.tsx`). Pick one: `npx remotion render src/index.ts TrackbotExplainer out/x.mp4 --props='{"character":"tunde"}'`. Lip movement comes from the voice audio; each scene has an `emotion` in its script file.
 - `TrackbotExplainer3D` swaps the route scenes for a real three.js 3D city (CPU software WebGL, slow: about 4 minutes for 56s here).
+
+## 3D assets (CC0, Poly Haven)
+`public/pbr/` holds the HDRI lighting map, road/pavement PBR textures and the street-lamp and hydrant models used by `src/City3D.tsx` (see `public/pbr/CREDITS.md`). Re-download with `python3 scripts/fetch-polyhaven.py`.
+Experiments with third-party assets that need attribution (`exp/`, `public/exp/`) are git-ignored.

@@ -1,7 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo } from 'react';
 import { ThreeCanvas } from '@remotion/three';
-import { useCurrentFrame, interpolate, Easing } from 'remotion';
+import { continueRender, delayRender, staticFile, useCurrentFrame, interpolate, Easing } from 'remotion';
 import * as THREE from 'three';
+import { useLoader } from '@react-three/fiber';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Realistic-ish low-poly night/day city: lit window textures, shadows, fog, trees, lamps, cars, detailed scooter, chase camera.
 const rand = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -82,6 +85,64 @@ const Scooter: React.FC<{ spin: number }> = ({ spin }) => (
   </group>
 );
 
+
+const Loading: React.FC = () => {
+  useEffect(() => { const h = delayRender('loading 3D assets'); return () => continueRender(h); }, []);
+  return null;
+};
+// Poly Haven (CC0) HDRI lighting + reflections
+const Env: React.FC<{ intensity: number }> = ({ intensity }) => {
+  const hdr = useLoader(RGBELoader, staticFile('pbr/hdri/venice_sunset_1k.hdr'));
+  const scene = useThree((st) => st.scene);
+  hdr.mapping = THREE.EquirectangularReflectionMapping;
+  scene.environment = hdr; (scene as any).environmentIntensity = intensity;
+  return null;
+};
+const pbr = (name: string) => [`pbr/${name}/diff.jpg`, `pbr/${name}/rough.jpg`, `pbr/${name}/nor.jpg`].map((u) => staticFile(u));
+const Roads: React.FC = () => {
+  const [aD, aR, aN] = useLoader(THREE.TextureLoader, pbr('asphalt_02'));
+  const [cD, cR, cN] = useLoader(THREE.TextureLoader, pbr('concrete_pavement'));
+  const mk = (t: THREE.Texture, rx: number, ry: number, srgb: boolean) => { const c = t.clone(); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(rx, ry); c.anisotropy = 8; if (srgb) c.colorSpace = THREE.SRGBColorSpace; c.needsUpdate = true; return c; };
+  const segs = useMemo(() => ROUTE.slice(1).map((p, i) => {
+    const L = lens[i];
+    return { L, a: { map: mk(aD, 2, (L + 7) / 3.5, true), roughnessMap: mk(aR, 2, (L + 7) / 3.5, false), normalMap: mk(aN, 2, (L + 7) / 3.5, false) }, c: { map: mk(cD, 1, (L + 7) / 2.2, true), roughnessMap: mk(cR, 1, (L + 7) / 2.2, false), normalMap: mk(cN, 1, (L + 7) / 2.2, false) } };
+  }), [aD, aR, aN, cD, cR, cN]);
+  return (
+    <>
+      {ROUTE.slice(1).map((p, i) => {
+        const [ax, az] = ROUTE[i]; const L = lens[i]; const yaw = Math.atan2(p[0] - ax, p[1] - az); const mx = (ax + p[0]) / 2, mz = (az + p[1]) / 2;
+        return (
+          <group key={i} position={[mx, i * 0.004, mz]} rotation={[0, yaw, 0]}>
+            <mesh position={[0, 0.02, 0]} receiveShadow><boxGeometry args={[7, 0.06, L + 7]} /><meshStandardMaterial {...segs[i].a} color="#9a9aa0" /></mesh>
+            {[-4.6, 4.6].map((x) => <mesh key={x} position={[x, 0.12, 0]} receiveShadow castShadow><boxGeometry args={[2.2, 0.24, L + 7]} /><meshStandardMaterial {...segs[i].c} /></mesh>)}
+            {Array.from({ length: Math.floor(L / 4) }, (_, k) => <mesh key={k} position={[0, 0.06, -L / 2 + k * 4 + 2]}><boxGeometry args={[0.18, 0.02, 1.8]} /><meshStandardMaterial color="#f4f1e8" roughness={0.6} /></mesh>)}
+            <mesh position={[0, 0.075, 0]}><boxGeometry args={[1.3, 0.01, L + 7]} /><meshStandardMaterial color="#2b6cff" emissive="#2b6cff" emissiveIntensity={0.9} transparent opacity={0.55} /></mesh>
+          </group>
+        );
+      })}
+    </>
+  );
+};
+
+// Poly Haven (CC0) street lamp + hydrant models, cloned per placement.
+const Props: React.FC<{ lamps: [number, number, number][]; hydrants: [number, number][]; dusk: boolean }> = ({ lamps, hydrants, dusk }) => {
+  const lamp = useLoader(GLTFLoader, staticFile('pbr/models/street_lamp_01/street_lamp_01_1k.gltf'));
+  const hyd = useLoader(GLTFLoader, staticFile('pbr/models/fire_hydrant/fire_hydrant_1k.gltf'));
+  const prep = (g: THREE.Group) => { g.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); return g; };
+  const LS = 1.3;
+  return (
+    <>
+      {lamps.map(([x, z, th], i) => (
+        <group key={i} position={[x, 0, z]} rotation={[0, th, 0]} scale={LS}>
+          <primitive object={prep(lamp.scene.clone(true))} />
+          <mesh position={[0, 3.42, 0]}><sphereGeometry args={[0.1, 12, 12]} /><meshStandardMaterial color="#fff3c4" emissive="#ffe08a" emissiveIntensity={dusk ? 3.5 : 1.2} /></mesh>
+        </group>
+      ))}
+      {hydrants.map(([x, z], i) => <group key={i} position={[x, 0.24, z]} scale={1.7}><primitive object={prep(hyd.scene.clone(true))} /></group>)}
+    </>
+  );
+};
+
 export const City3D: React.FC<{ width: number; height: number; progress?: [number, number]; dusk?: boolean }> = ({ width, height, progress = [0.02, 0.98], dusk = false }) => {
   const Q = 0.67; // render scale: fewer pixels for the CPU renderer
   const rw = Math.round(width * Q), rh = Math.round(height * Q);
@@ -116,7 +177,7 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
       for (let s = 3; s < L; s += 8) for (const side of [-1, 1]) {
         const px = ax + (dx / L) * s + nx * 5.3 * side, pz = az + (dz / L) * s + nz * 5.3 * side;
         if (distToOthers(px, pz, i) < 7) continue;
-        if (Math.floor(s / 8) % 2) trees.push([px, pz]); else lamps.push([px, pz, side]);
+        if (Math.floor(s / 8) % 2) trees.push([px, pz]); else lamps.push([px, pz, Math.atan2(nz * side, -nx * side)]);
         if (rand(i * 7 + s + side) > 0.72 && distToOthers(ax + (dx / L) * s, az + (dz / L) * s, i) > 9) cars.push({ x: ax + (dx / L) * s + nx * 2.6 * side, z: az + (dz / L) * s + nz * 2.6 * side, yaw, c: ['#e0e0e0', '#c0392b', '#2b6cff', '#f5b820'][Math.floor(rand(s + side) * 4)] });
       }
     });
@@ -124,9 +185,9 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
   }, []);
 
   const t = interpolate(frame, [0, 170], progress, { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) });
-  const me = at(t); const ahead = { x: me.x + Math.sin(me.yaw) * 1.2, z: me.z + Math.cos(me.yaw) * 1.2 };
+  const me = at(t); const ahead = { x: me.x + Math.sin(me.yaw) * 1.0, z: me.z + Math.cos(me.yaw) * 1.0 };
   const dirx = Math.sin(me.yaw), dirz = Math.cos(me.yaw);
-  const back = at(Math.max(0, t - 0.055));
+  const back = at(Math.max(0, t - 0.068));
   const sway = Math.sin(frame / 55) * 1.0;
   const camX = back.x + Math.cos(back.yaw) * sway, camZ = back.z - Math.sin(back.yaw) * sway;
   const sky = dusk ? '#f2a07a' : '#bcd9f5';
@@ -135,27 +196,18 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
 
   return (
     <div style={{ width, height, overflow: 'hidden' }}><div style={{ width: rw, height: rh, transform: `scale(${1 / Q})`, transformOrigin: '0 0' }}>
-    <ThreeCanvas width={rw} height={rh} shadows camera={{ position: [camX, 7.4, camZ], fov: 56, near: 0.1, far: 220 }}
-      onCreated={({ camera }) => camera.lookAt(ahead.x, 1.0, ahead.z)}>
+    <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: dusk ? 0.95 : 0.85, antialias: true }} camera={{ position: [camX, 4.6, camZ], fov: 60, near: 0.1, far: 220 }}
+      onCreated={({ camera }) => camera.lookAt(ahead.x, 1.6, ahead.z)}>
       <CameraRig cx={camX} cz={camZ} tx={ahead.x} tz={ahead.z} />
+      <Suspense fallback={<Loading />}>
+      <Env intensity={dusk ? 0.9 : 1.0} />
       <color attach="background" args={[sky]} />
       <fog attach="fog" args={[sky, 38, 120]} />
       <hemisphereLight args={[dusk ? '#ffd7b0' : '#dff0ff', '#7a6a60', dusk ? 0.8 : 1.0]} />
       <directionalLight position={[me.x + 24, 30, me.z + 14]} intensity={dusk ? 1.6 : 2.2} color={dusk ? '#ffb27a' : '#fff4dc'} castShadow shadow-mapSize={[768, 768]} shadow-camera-left={-40} shadow-camera-right={40} shadow-camera-top={40} shadow-camera-bottom={-40} shadow-camera-near={1} shadow-camera-far={120} />
       {/* ground */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow><planeGeometry args={[400, 400]} /><meshStandardMaterial color={dusk ? '#6b5a58' : '#a9b3a0'} roughness={1} /></mesh>
-      {/* roads, sidewalks, markings, route glow */}
-      {ROUTE.slice(1).map((p, i) => {
-        const [ax, az] = ROUTE[i]; const L = lens[i]; const yaw = Math.atan2(p[0] - ax, p[1] - az); const mx = (ax + p[0]) / 2, mz = (az + p[1]) / 2;
-        return (
-          <group key={i} position={[mx, 0, mz]} rotation={[0, yaw, 0]}>
-            <mesh position={[0, 0.02, 0]} receiveShadow><boxGeometry args={[7, 0.06, L + 7]} /><meshStandardMaterial color="#35363d" roughness={0.85} /></mesh>
-            {[-4.6, 4.6].map((x) => <mesh key={x} position={[x, 0.12, 0]} receiveShadow castShadow><boxGeometry args={[2.2, 0.24, L + 7]} /><meshStandardMaterial color="#cfc8b8" roughness={0.9} /></mesh>)}
-            {Array.from({ length: Math.floor(L / 4) }, (_, k) => <mesh key={k} position={[0, 0.06, -L / 2 + k * 4 + 2]}><boxGeometry args={[0.18, 0.02, 1.8]} /><meshStandardMaterial color="#f4f1e8" /></mesh>)}
-            <mesh position={[0, 0.075, 0]}><boxGeometry args={[1.3, 0.01, L + 7]} /><meshStandardMaterial color="#2b6cff" emissive="#2b6cff" emissiveIntensity={0.9} transparent opacity={0.55} /></mesh>
-          </group>
-        );
-      })}
+      <Roads />
       {/* buildings */}
       {buildings.map((b, i) => (
         <mesh key={i} position={[b.x, b.h / 2, b.z]} castShadow receiveShadow>
@@ -164,19 +216,13 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
         </mesh>
       ))}
       {/* trees */}
-      {props.trees.map(([x, z], i) => (
+      {props.trees.filter((_, i) => i % 3 !== 0).map(([x, z], i) => (
         <group key={i} position={[x, 0, z]}>
           <mesh position={[0, 0.9, 0]} castShadow><cylinderGeometry args={[0.14, 0.2, 1.8, 8]} /><meshStandardMaterial color="#5a3d28" /></mesh>
           <mesh position={[0, 2.5, 0]} castShadow><sphereGeometry args={[1.2, 14, 12]} /><meshStandardMaterial color={['#2f8f4e', '#3aa35b', '#277a42'][i % 3]} roughness={0.9} /></mesh>
         </group>
       ))}
-      {/* street lamps */}
-      {props.lamps.map(([x, z, side], i) => (
-        <group key={i} position={[x, 0, z]}>
-          <mesh position={[0, 2.4, 0]} castShadow><cylinderGeometry args={[0.07, 0.09, 4.8, 8]} /><meshStandardMaterial color="#2a2a2f" /></mesh>
-          <mesh position={[-side * 0.5, 4.8, 0]}><sphereGeometry args={[0.28, 12, 12]} /><meshStandardMaterial color="#fff3c4" emissive="#ffe08a" emissiveIntensity={dusk ? 3 : 1.2} /></mesh>
-        </group>
-      ))}
+      <Props lamps={props.lamps} hydrants={props.trees.filter((_, i) => i % 3 === 0)} dusk={dusk} />
       {/* parked cars */}
       {props.cars.map((c, i) => (
         <group key={i} position={[c.x, 0, c.z]} rotation={[0, c.yaw, 0]}>
@@ -192,6 +238,7 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
       </group>
       <mesh position={[endX, 0.3, endZ + 1]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[1.5 + pulse * 3, 1.9 + pulse * 3, 40]} /><meshBasicMaterial color="#ff5a36" transparent opacity={1 - pulse} /></mesh>
       <mesh position={[endX, 7.5, endZ - 5]}><coneGeometry args={[0.9, 2.2, 16]} /><meshStandardMaterial color="#ff5a36" emissive="#ff5a36" emissiveIntensity={1.2} /></mesh>
+      </Suspense>
       {/* the rider */}
       <group position={[me.x, 0, me.z]} rotation={[0, me.yaw, 0]}><Scooter spin={frame * 0.9} /></group>
       <mesh position={[me.x - dirx * 0.2, 0.01, me.z - dirz * 0.2]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[1.6 + pulse, 1.8 + pulse, 32]} /><meshBasicMaterial color="#2b6cff" transparent opacity={0.7 * (1 - pulse)} /></mesh>
@@ -203,7 +250,7 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
 import { useThree } from '@react-three/fiber';
 const CameraRig: React.FC<{ cx: number; cz: number; tx: number; tz: number }> = ({ cx, cz, tx, tz }) => {
   const { camera } = useThree();
-  camera.position.set(cx, 7.4, cz);
-  camera.lookAt(tx, 1.0, tz);
+  camera.position.set(cx, 4.6, cz);
+  camera.lookAt(tx, 1.6, tz);
   return null;
 };
