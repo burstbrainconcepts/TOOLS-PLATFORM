@@ -1,6 +1,7 @@
 import React from 'react';
 import { AbsoluteFill, Audio, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
 import data from './data.json';
+import { Host, type CharacterType, type Emotion } from './Character';
 
 export const C = { bg: '#FBF7EF', ink: '#1B1B1F', accent: '#FF5A36', blue: '#2B6CFF', muted: '#D9D2C2', green: '#1FA66A' };
 export const FONT = '"Helvetica Neue", Arial, sans-serif';
@@ -285,27 +286,32 @@ const Captions: React.FC<{ text: string; frame: number; audioFrames: number }> =
 
 type D = typeof data;
 export type RenderFn = (kind: string, f: number, extra: { brand: string; cta: string }) => React.ReactNode;
-const SceneView: React.FC<{ s: D['scenes'][number]; d: D; render: RenderFn }> = ({ s, d, render }) => {
+const SceneView: React.FC<{ s: D['scenes'][number]; d: D; render: RenderFn; character: CharacterType }> = ({ s, d, render, character }) => {
   const f = useCurrentFrame();
   const fade = interpolate(f, [0, 8, s.frames - 8, s.frames], [0, 1, 1, 0], clamp);
   return (
     <AbsoluteFill>
       <Audio src={staticFile(s.audio)} />
       <div style={{ position: 'absolute', top: 70, left: 0, right: 0, textAlign: 'center', fontFamily: FONT, fontWeight: 800, fontSize: 36, letterSpacing: 6, color: C.muted }}>{d.brand} · {d.tag}</div>
-      <div style={{ position: 'absolute', top: 140, left: 0, right: 0, height: 1500, opacity: fade }}>{render(s.kind, f, { brand: d.brand, cta: d.cta })}</div>
-      <div style={{ position: 'absolute', bottom: 150, left: 0, right: 0, height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'absolute', top: 110, left: 0, right: 0, height: 1000, opacity: fade }}>{render(s.kind, f, { brand: d.brand, cta: d.cta })}</div>
+      <div style={{ position: 'absolute', top: 1040, left: 0, right: 0, height: 540 }}>
+        <Host type={character} mouth={s.mouth[Math.min(f, s.mouth.length - 1)] ?? 0} emotion={(s as { emotion?: Emotion }).emotion ?? 'neutral'} frame={f} />
+      </div>
+      <div style={{ position: 'absolute', bottom: 60, left: 0, right: 0, height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Captions text={s.text} frame={f} audioFrames={s.audioFrames} />
       </div>
     </AbsoluteFill>
   );
 };
 
-export const makeVideo = (d: D, render: RenderFn): React.FC => () => {
+export type VideoProps = { character?: CharacterType };
+export const makeVideo = (d: D, render: RenderFn): React.FC<VideoProps> => ({ character }) => {
   let from = 0;
+  const who = (character ?? (d as { character?: string }).character ?? 'ada') as CharacterType;
   return (
     <AbsoluteFill style={{ background: C.bg }}>
       {d.scenes.map((s, i) => {
-        const el = <Sequence key={i} from={from} durationInFrames={s.frames}><SceneView s={s} d={d} render={render} /></Sequence>;
+        const el = <Sequence key={i} from={from} durationInFrames={s.frames}><SceneView s={s} d={d} render={render} character={who} /></Sequence>;
         from += s.frames;
         return el;
       })}

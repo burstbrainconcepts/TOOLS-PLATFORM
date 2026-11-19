@@ -5,7 +5,7 @@ import { MoneyVideo, moneyData } from './Money';
 
 export const Root = () => (
   <>
-    <Composition id="TrackbotExplainer" component={Video} durationInFrames={data.total} fps={data.fps} width={1080} height={1920} />
-    <Composition id="MoneyExplainer" component={MoneyVideo} durationInFrames={moneyData.total} fps={moneyData.fps} width={1080} height={1920} />
+    <Composition id="TrackbotExplainer" component={Video} durationInFrames={data.total} fps={data.fps} width={1080} height={1920} defaultProps={{ character: 'ada' as const }} />
+    <Composition id="MoneyExplainer" component={MoneyVideo} durationInFrames={moneyData.total} fps={moneyData.fps} width={1080} height={1920} defaultProps={{ character: 'ada' as const }} />
   </>
 );

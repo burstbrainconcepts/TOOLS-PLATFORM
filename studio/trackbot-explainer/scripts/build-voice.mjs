@@ -25,7 +25,20 @@ const scenes = script.scenes.map((s, i) => {
   const dur = parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).toString());
   const frames = Math.ceil((dur + PAD) * FPS);
   total += frames;
-  return { ...s, audio: `voice/${prefix}${i}.wav`, audioFrames: Math.ceil(dur * FPS), frames };
+  // Mouth openness per video frame from the voice loudness (lip-flap driven by the real audio).
+  const pcm = execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-f', 's16le', '-ac', '1', '-ar', '16000', '-'], { maxBuffer: 1 << 28 });
+  const samples = new Int16Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 2));
+  const win = Math.floor(16000 / FPS);
+  const rms = Array.from({ length: frames }, (_, f) => {
+    let sum = 0, n = 0;
+    for (let k = f * win; k < Math.min((f + 1) * win, samples.length); k++) { sum += samples[k] * samples[k]; n++; }
+    return n ? Math.sqrt(sum / n) : 0;
+  });
+  const sorted = [...rms].sort((a, b) => a - b);
+  const ref = sorted[Math.floor(sorted.length * 0.95)] || 1;
+  let prev = 0;
+  const mouth = rms.map((r) => { const t = Math.min(1, r / ref); const v = t < 0.12 ? 0 : t; prev = prev * 0.45 + v * 0.55; return Math.round(prev * 100) / 100; });
+  return { ...s, audio: `voice/${prefix}${i}.wav`, audioFrames: Math.ceil(dur * FPS), frames, mouth };
 });
-writeFileSync(outFile, JSON.stringify({ tag: script.tag ?? '', fps: FPS, total, title: script.title, brand: script.brand, cta: script.cta, scenes }, null, 2));
+writeFileSync(outFile, JSON.stringify({ tag: script.tag ?? '', character: script.character ?? 'ada', fps: FPS, total, title: script.title, brand: script.brand, cta: script.cta, scenes }, null, 2));
 console.log(`${scenes.length} scenes, ${(total / FPS).toFixed(1)}s`);
