@@ -1,4 +1,5 @@
 import React from 'react';
+import { AdaPro } from './AdaPro';
 
 export type CharacterType = 'ada' | 'tunde' | 'bolt';
 export type Emotion = 'neutral' | 'happy' | 'surprised' | 'worried';
@@ -31,7 +32,7 @@ const Arm: React.FC<{ side: 1 | -1; a1: number; a2: number; sleeve: string; skin
   </g>
 );
 
-export const Character: React.FC<Props> = ({ type, mouth, emotion, frame }) => {
+const Basic: React.FC<Props> = ({ type, mouth, emotion, frame }) => {
   const robot = type === 'bolt';
   const skin = type === 'ada' ? '#8D5524' : '#6B4226';
   const top = type === 'ada' ? '#FF5A36' : type === 'tunde' ? '#2B6CFF' : '#2B6CFF';
@@ -134,12 +135,60 @@ export const Character: React.FC<Props> = ({ type, mouth, emotion, frame }) => {
   );
 };
 
+export const Character: React.FC<Props> = (p) =>
+  p.type === 'ada' ? <AdaPro mouth={p.mouth} emotion={p.emotion} frame={p.frame} /> : <Basic {...p} />;
+
+const Room: React.FC<{ frame: number }> = ({ frame }) => (
+  <g>
+    {/* wall panel + floor */}
+    <rect x={24} y={10} width={1032} height={520} rx={36} fill="#F1EBDD" />
+    <rect x={24} y={478} width={1032} height={52} rx={26} fill="#D9D2C2" />
+    <rect x={24} y={478} width={1032} height={10} fill="#C9C1AE" />
+    {/* window with skyline */}
+    <g transform="translate(70 70)">
+      <rect width={470} height={330} rx={18} fill="#CFE4FF" stroke="#1B1B1F" strokeWidth={6} />
+      <path d="M0 330 V250 H50 V200 H110 V260 H160 V170 H230 V240 H290 V210 H350 V270 H410 V230 H470 V330Z" fill="#9DB8E0" />
+      <path d="M0 330 V290 H70 V250 H140 V300 H220 V260 H300 V300 H380 V270 H470 V330Z" fill="#7F9CCB" />
+      <circle cx={380} cy={70} r={30} fill="#FFE9A8" />
+      <line x1={235} y1={0} x2={235} y2={330} stroke="#1B1B1F" strokeWidth={6} /><line x1={0} y1={165} x2={470} y2={165} stroke="#1B1B1F" strokeWidth={6} />
+    </g>
+    {/* shelf with books, plant, lamp */}
+    <g transform="translate(640 40)">
+      <rect x={0} y={150} width={380} height={12} rx={6} fill="#8B5E3C" />
+      {[['#FF5A36', 0], ['#2B6CFF', 28], ['#F5B820', 56], ['#1FA66A', 84]].map(([c, x], i) => (
+        <rect key={i} x={Number(x) + 8} y={92 - (i % 2) * 14} width={24} height={58 + (i % 2) * 14} rx={3} fill={String(c)} stroke="#1B1B1F" strokeWidth={3} />
+      ))}
+      <g transform="translate(250 150)">
+        <path d="M-30 0 L-22 -50 H22 L30 0Z" fill="#C9722E" stroke="#1B1B1F" strokeWidth={4} />
+        {[[-24, -90, -30], [0, -110, 0], [24, -88, 30]].map(([x, y, r], i) => (
+          <ellipse key={i} cx={x} cy={y} rx={14} ry={38} transform={`rotate(${Number(r) + Math.sin(frame / 40 + i) * 3} ${x} -50)`} fill="#1FA66A" stroke="#1B1B1F" strokeWidth={3} />
+        ))}
+      </g>
+      <g transform="translate(340 150)">
+        <rect x={-6} y={-60} width={12} height={60} fill="#1B1B1F" /><path d="M-30 -60 L30 -60 L18 -100 H-18Z" fill="#F5B820" stroke="#1B1B1F" strokeWidth={4} />
+      </g>
+    </g>
+    {/* wall clock + framed pin picture */}
+    <g transform="translate(700 270)">
+      <circle r={54} fill="#fff" stroke="#1B1B1F" strokeWidth={6} />
+      <line x1={0} y1={0} x2={0} y2={-34} stroke="#1B1B1F" strokeWidth={6} strokeLinecap="round" transform={`rotate(${(frame / 30) * 6})`} />
+      <line x1={0} y1={0} x2={0} y2={-22} stroke="#FF5A36" strokeWidth={7} strokeLinecap="round" transform={`rotate(${(frame / 30) * 0.5})`} />
+      <circle r={5} fill="#1B1B1F" />
+    </g>
+    <g transform="translate(850 220)">
+      <rect width={150} height={130} rx={10} fill="#fff" stroke="#1B1B1F" strokeWidth={6} />
+      <path d="M75 100 C55 75 52 62 52 54 A23 23 0 1 1 98 54 C98 62 95 75 75 100Z" fill="#FF5A36" /><circle cx={75} cy={54} r={8} fill="#fff" />
+    </g>
+  </g>
+);
+
 export const Host: React.FC<Props> = (p) => (
   <svg viewBox="0 0 1080 540" width="100%" height="100%">
+    <Room frame={p.frame} />
     <g transform="translate(330 425)">
       <Character {...p} />
     </g>
-    <g transform="translate(790 60)">
+    <g transform="translate(790 440)">
       <rect x={0} y={0} width={210} height={64} rx={32} fill="#1B1B1F" />
       <text x={105} y={44} textAnchor="middle" fontFamily='"Helvetica Neue", Arial, sans-serif' fontWeight={900} fontSize={34} letterSpacing={4} fill="#FBF7EF">{CHARACTERS[p.type].name}</text>
     </g>
