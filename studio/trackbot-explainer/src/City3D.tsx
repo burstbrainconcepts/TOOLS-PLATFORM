@@ -102,7 +102,7 @@ const pbr = (name: string) => [`pbr/${name}/diff.jpg`, `pbr/${name}/rough.jpg`, 
 const Roads: React.FC = () => {
   const [aD, aR, aN] = useLoader(THREE.TextureLoader, pbr('asphalt_02'));
   const [cD, cR, cN] = useLoader(THREE.TextureLoader, pbr('concrete_pavement'));
-  const mk = (t: THREE.Texture, rx: number, ry: number, srgb: boolean) => { const c = t.clone(); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(rx, ry); c.anisotropy = 8; if (srgb) c.colorSpace = THREE.SRGBColorSpace; c.needsUpdate = true; return c; };
+  const mk = (t: THREE.Texture, rx: number, ry: number, srgb: boolean) => { const c = t.clone(); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(rx, ry); c.anisotropy = 2; if (srgb) c.colorSpace = THREE.SRGBColorSpace; c.needsUpdate = true; return c; };
   const segs = useMemo(() => ROUTE.slice(1).map((p, i) => {
     const L = lens[i];
     return { L, a: { map: mk(aD, 2, (L + 7) / 3.5, true), roughnessMap: mk(aR, 2, (L + 7) / 3.5, false), normalMap: mk(aN, 2, (L + 7) / 3.5, false) }, c: { map: mk(cD, 1, (L + 7) / 2.2, true), roughnessMap: mk(cR, 1, (L + 7) / 2.2, false), normalMap: mk(cN, 1, (L + 7) / 2.2, false) } };
@@ -128,7 +128,7 @@ const Roads: React.FC = () => {
 const Props: React.FC<{ lamps: [number, number, number][]; hydrants: [number, number][]; dusk: boolean }> = ({ lamps, hydrants, dusk }) => {
   const lamp = useLoader(GLTFLoader, staticFile('pbr/models/street_lamp_01/street_lamp_01_1k.gltf'));
   const hyd = useLoader(GLTFLoader, staticFile('pbr/models/fire_hydrant/fire_hydrant_1k.gltf'));
-  const prep = (g: THREE.Group) => { g.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); return g; };
+  const prep = (g: THREE.Group) => { g.traverse((o: any) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } }); return g; };
   const LS = 1.3;
   return (
     <>
@@ -196,7 +196,7 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
 
   return (
     <div style={{ width, height, overflow: 'hidden' }}><div style={{ width: rw, height: rh, transform: `scale(${1 / Q})`, transformOrigin: '0 0' }}>
-    <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: dusk ? 0.95 : 0.85, antialias: true }} camera={{ position: [camX, 4.6, camZ], fov: 60, near: 0.1, far: 220 }}
+    <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: dusk ? 0.95 : 0.85, antialias: false }} camera={{ position: [camX, 4.6, camZ], fov: 60, near: 0.1, far: 220 }}
       onCreated={({ camera }) => camera.lookAt(ahead.x, 1.6, ahead.z)}>
       <CameraRig cx={camX} cz={camZ} tx={ahead.x} tz={ahead.z} />
       <Suspense fallback={<Loading />}>
@@ -209,22 +209,22 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow><planeGeometry args={[400, 400]} /><meshStandardMaterial color={dusk ? '#6b5a58' : '#a9b3a0'} roughness={1} /></mesh>
       <Roads />
       {/* buildings */}
-      {buildings.map((b, i) => (
+      {buildings.filter((b) => Math.hypot(b.x - me.x, b.z - me.z) < 75).map((b, i) => (
         <mesh key={i} position={[b.x, b.h / 2, b.z]} castShadow receiveShadow>
           <boxGeometry args={[b.w, b.h, b.d]} />
           <meshStandardMaterial color={b.c} map={tex[b.cls].map} emissiveMap={tex[b.cls].em} emissive="#ffd070" emissiveIntensity={dusk ? 1.3 : 0.35} roughness={0.8} />
         </mesh>
       ))}
       {/* trees */}
-      {props.trees.filter((_, i) => i % 3 !== 0).map(([x, z], i) => (
+      {props.trees.filter((_, i) => i % 3 !== 0).filter(([x, z]) => Math.hypot(x - me.x, z - me.z) < 55).map(([x, z], i) => (
         <group key={i} position={[x, 0, z]}>
           <mesh position={[0, 0.9, 0]} castShadow><cylinderGeometry args={[0.14, 0.2, 1.8, 8]} /><meshStandardMaterial color="#5a3d28" /></mesh>
           <mesh position={[0, 2.5, 0]} castShadow><sphereGeometry args={[1.2, 14, 12]} /><meshStandardMaterial color={['#2f8f4e', '#3aa35b', '#277a42'][i % 3]} roughness={0.9} /></mesh>
         </group>
       ))}
-      <Props lamps={props.lamps} hydrants={props.trees.filter((_, i) => i % 3 === 0)} dusk={dusk} />
+      <Props lamps={props.lamps.filter(([x, z]) => Math.hypot(x - me.x, z - me.z) < 50)} hydrants={props.trees.filter((_, i) => i % 3 === 0).filter(([x, z]) => Math.hypot(x - me.x, z - me.z) < 40)} dusk={dusk} />
       {/* parked cars */}
-      {props.cars.map((c, i) => (
+      {props.cars.filter((c) => Math.hypot(c.x - me.x, c.z - me.z) < 45).map((c, i) => (
         <group key={i} position={[c.x, 0, c.z]} rotation={[0, c.yaw, 0]}>
           <mesh position={[0, 0.5, 0]} castShadow><boxGeometry args={[1.5, 0.6, 3.2]} /><meshStandardMaterial color={c.c} metalness={0.4} roughness={0.35} /></mesh>
           <mesh position={[0, 1.0, -0.2]} castShadow><boxGeometry args={[1.3, 0.5, 1.7]} /><meshStandardMaterial color="#5a6a80" metalness={0.5} roughness={0.25} /></mesh>
