@@ -21,3 +21,6 @@ Set `CHROME_PATH` to a Chrome/headless-shell binary if Remotion cannot find one.
 ## 3D assets (CC0, Poly Haven)
 `public/pbr/` holds the HDRI lighting map, road/pavement PBR textures and the street-lamp and hydrant models used by `src/City3D.tsx` (see `public/pbr/CREDITS.md`). Re-download with `python3 scripts/fetch-polyhaven.py`.
 Experiments with third-party assets that need attribution (`exp/`, `public/exp/`) are git-ignored.
+
+## Courier + scooter model (our own)
+`models/build_courier.py` builds the scooter, rider and delivery box procedurally in Blender (`blender -b --python models/build_courier.py`, add `-- preview.png` for a test render; set `VIEW=front34|side`) and exports `public/models/courier_scooter.glb`. `src/City3D.tsx` animates the named parts: wheels spin with distance, the front fork steers and the scooter leans into turns.

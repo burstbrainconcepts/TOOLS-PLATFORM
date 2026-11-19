@@ -143,6 +143,22 @@ const Props: React.FC<{ lamps: [number, number, number][]; hydrants: [number, nu
   );
 };
 
+// Our own courier + scooter model (models/build_courier.py). Named nodes: WheelF, WheelR, Steer, Rider.
+const Courier: React.FC<{ distance: number; yawRate: number; frame: number }> = ({ distance, yawRate, frame }) => {
+  const gltf = useLoader(GLTFLoader, staticFile('models/courier_scooter.glb'));
+  const model = useMemo(() => {
+    const m = gltf.scene.clone(true);
+    m.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    return m;
+  }, [gltf]);
+  const spin = distance / 0.27;
+  const steer = Math.max(-0.4, Math.min(0.4, yawRate * 0.9));
+  const wf = model.getObjectByName('WheelF'), wr = model.getObjectByName('WheelR'), st = model.getObjectByName('Steer'), rd = model.getObjectByName('Rider');
+  if (wf) wf.rotation.x = spin; if (wr) wr.rotation.x = spin; if (st) st.rotation.y = steer;
+  if (rd) rd.rotation.z = Math.sin(frame / 7) * 0.012 + steer * 0.05;
+  return <group rotation={[0, 0, -steer * 0.45]} position={[0, Math.sin(frame / 3.1) * 0.008, 0]} scale={1.6}><primitive object={model} /></group>;
+};
+
 export const City3D: React.FC<{ width: number; height: number; progress?: [number, number]; dusk?: boolean }> = ({ width, height, progress = [0.02, 0.98], dusk = false }) => {
   const Q = 0.67; // render scale: fewer pixels for the CPU renderer
   const rw = Math.round(width * Q), rh = Math.round(height * Q);
@@ -187,6 +203,8 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
   const t = interpolate(frame, [0, 170], progress, { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) });
   const me = at(t); const ahead = { x: me.x + Math.sin(me.yaw) * 1.0, z: me.z + Math.cos(me.yaw) * 1.0 };
   const dirx = Math.sin(me.yaw), dirz = Math.cos(me.yaw);
+  const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+  const yawRate = wrap(at(Math.min(1, t + 0.025)).yaw - at(Math.max(0, t - 0.025)).yaw) * 3.0;
   const back = at(Math.max(0, t - 0.068));
   const sway = Math.sin(frame / 55) * 1.0;
   const camX = back.x + Math.cos(back.yaw) * sway, camZ = back.z - Math.sin(back.yaw) * sway;
@@ -238,9 +256,8 @@ export const City3D: React.FC<{ width: number; height: number; progress?: [numbe
       </group>
       <mesh position={[endX, 0.3, endZ + 1]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[1.5 + pulse * 3, 1.9 + pulse * 3, 40]} /><meshBasicMaterial color="#ff5a36" transparent opacity={1 - pulse} /></mesh>
       <mesh position={[endX, 7.5, endZ - 5]}><coneGeometry args={[0.9, 2.2, 16]} /><meshStandardMaterial color="#ff5a36" emissive="#ff5a36" emissiveIntensity={1.2} /></mesh>
+      <group position={[me.x, 0, me.z]} rotation={[0, me.yaw, 0]}><Courier distance={t * total} yawRate={yawRate} frame={frame} /></group>
       </Suspense>
-      {/* the rider */}
-      <group position={[me.x, 0, me.z]} rotation={[0, me.yaw, 0]}><Scooter spin={frame * 0.9} /></group>
       <mesh position={[me.x - dirx * 0.2, 0.01, me.z - dirz * 0.2]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[1.6 + pulse, 1.8 + pulse, 32]} /><meshBasicMaterial color="#2b6cff" transparent opacity={0.7 * (1 - pulse)} /></mesh>
     </ThreeCanvas>
     </div></div>
