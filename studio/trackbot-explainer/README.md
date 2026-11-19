@@ -14,3 +14,7 @@ Quality check: `node scripts/qa.mjs out/<video>.mp4` (clipping, loudness, silenc
 Better voice: `PIPER_MODEL=/path/to/voice.onnx npm run voice` uses Piper instead of espeak-ng.
 Set `CHROME_PATH` to a Chrome/headless-shell binary if Remotion cannot find one.
 The voice is espeak-ng (robotic). A better local voice (Piper/Kokoro) only needs a model file placed on disk.
+
+## Characters and 3D
+- Host characters: `ada`, `tunde`, `bolt` (`src/Character.tsx`). Pick one: `npx remotion render src/index.ts TrackbotExplainer out/x.mp4 --props='{"character":"tunde"}'`. Lip movement comes from the voice audio; each scene has an `emotion` in its script file.
+- `TrackbotExplainer3D` swaps the route scenes for a real three.js 3D city (CPU software WebGL, slow: about 4 minutes for 56s here).

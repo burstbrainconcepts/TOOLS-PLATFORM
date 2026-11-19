@@ -8,7 +8,7 @@ on:
       video:
         description: Which video
         type: choice
-        options: [TrackbotExplainer, MoneyExplainer]
+        options: [TrackbotExplainer, TrackbotExplainer3D, MoneyExplainer]
         default: TrackbotExplainer
       character:
         description: Host character (also picks the voice)

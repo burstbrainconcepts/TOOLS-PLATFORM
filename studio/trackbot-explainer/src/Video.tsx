@@ -250,7 +250,7 @@ const Outro: React.FC<P & { brand: string; cta: string }> = ({ f, brand, cta }) 
   );
 };
 
-const renderScene = (kind: string, f: number, extra: { brand: string; cta: string }) => {
+export const renderScene = (kind: string, f: number, extra: { brand: string; cta: string }) => {
   const p = { f, fps: 30 };
   switch (kind) {
     case 'hook': return <Hook {...p} />;
