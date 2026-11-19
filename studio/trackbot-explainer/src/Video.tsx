@@ -2,6 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Audio, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
 import data from './data.json';
 import { Host, type CharacterType, type Emotion } from './Character';
+import * as V2 from './Scenes2';
 
 export const C = { bg: '#FBF7EF', ink: '#1B1B1F', accent: '#FF5A36', blue: '#2B6CFF', muted: '#D9D2C2', green: '#1FA66A' };
 export const FONT = '"Helvetica Neue", Arial, sans-serif';
@@ -253,14 +254,14 @@ const Outro: React.FC<P & { brand: string; cta: string }> = ({ f, brand, cta }) 
 export const renderScene = (kind: string, f: number, extra: { brand: string; cta: string }) => {
   const p = { f, fps: 30 };
   switch (kind) {
-    case 'hook': return <Hook {...p} />;
-    case 'start': return <Start {...p} />;
-    case 'gps': return <Gps {...p} />;
-    case 'send': return <Send {...p} />;
-    case 'route': return <Route {...p} />;
-    case 'push': return <Push {...p} />;
-    case 'arrive': return <Arrive {...p} />;
-    default: return <Outro {...p} {...extra} />;
+    case 'hook': return <V2.Hook f={f} />;
+    case 'start': return <V2.Start f={f} />;
+    case 'gps': return <V2.Gps f={f} />;
+    case 'send': return <V2.Send f={f} />;
+    case 'route': return <V2.Route2 f={f} />;
+    case 'push': return <V2.Push f={f} />;
+    case 'arrive': return <V2.Arrive f={f} />;
+    default: return <V2.Outro2 f={f} {...extra} />;
   }
 };
 
@@ -293,7 +294,7 @@ const SceneView: React.FC<{ s: D['scenes'][number]; d: D; render: RenderFn; char
     <AbsoluteFill>
       <Audio src={staticFile(s.audio)} />
       <div style={{ position: 'absolute', top: 70, left: 0, right: 0, textAlign: 'center', fontFamily: FONT, fontWeight: 800, fontSize: 36, letterSpacing: 6, color: C.muted }}>{d.brand} · {d.tag}</div>
-      <div style={{ position: 'absolute', top: 110, left: 0, right: 0, height: 1000, opacity: fade }}>{render(s.kind, f, { brand: d.brand, cta: d.cta })}</div>
+      <div style={{ position: 'absolute', top: 110, left: 0, right: 0, height: 930, opacity: fade, transform: `translateX(${interpolate(f, [0, 14], [60, 0], clamp)}px) scale(${1 + f * 0.00022})`, transformOrigin: '50% 50%' }}>{render(s.kind, f, { brand: d.brand, cta: d.cta })}</div>
       <div style={{ position: 'absolute', top: 1040, left: 0, right: 0, height: 540 }}>
         <Host type={character} mouth={s.mouth[Math.min(f, s.mouth.length - 1)] ?? 0} emotion={(s as { emotion?: Emotion }).emotion ?? 'neutral'} frame={f} />
       </div>
