@@ -53,3 +53,6 @@ python postprocess/shotfx.py interpolate out/shots/ShotRoute15.mp4 out/shots/Sho
 * RIFE smears small, fast-moving parts (the rider's head and arms) in weak stretches, and a high PSNR does not guarantee it looks right.
 * Measured on stylised 3D renders with the 4.25-lite model only; not tested on live-action or photoreal footage.
 
+## Using it in the main video
+`npm run shots` (scripts/build-shots.mjs) builds the pre-rendered 3D shot clips listed in `src/shots.config.json`: it renders each shot at 15 fps, runs the gate, interpolates to 30 fps if the gate passes and otherwise renders the shot at full rate, and records how each clip was made in `public/shots/manifest.json`. `TrackbotExplainer3D` then plays the clips (`src/ShotClip.tsx`) and falls back to live 3D if a clip is missing. Use `--reuse` to reuse up-to-date shot renders and `--force` to rebuild. Set `POSTPROCESS_PY` to a Python with onnxruntime and opencv.
+

@@ -1,11 +1,15 @@
 import { Composition } from 'remotion';
 import data from './data.json';
 import { Video, makeVideo, renderScene } from './Video';
-import { City3D } from './City3D';
+import { ShotClip } from './ShotClip';
+import shotConfig from './shots.config.json';
 import { Shots } from './Shots';
 import { MoneyVideo, moneyData } from './Money';
 
-const Video3D = makeVideo(data, (k, f, e) => (k === 'route' ? <City3D width={1080} height={1920} progress={[0.35, 0.98]} /> : k === 'hook' ? <City3D width={1080} height={1920} progress={[0.07, 0.34]} dusk /> : renderScene(k, f, e)));
+const Video3D = makeVideo(data, (k, f, e) => {
+  const spec = shotConfig.find((c) => c.sceneKind === k);
+  return spec ? <ShotClip spec={spec} /> : renderScene(k, f, e);
+});
 
 export const Root = () => (
   <>

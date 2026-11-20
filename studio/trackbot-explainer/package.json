@@ -5,7 +5,8 @@
   "scripts": {
     "voice": "node scripts/build-voice.mjs",
     "studio": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts TrackbotExplainer out/trackbot-explainer.mp4"
+    "render": "remotion render src/index.ts TrackbotExplainer out/trackbot-explainer.mp4",
+    "shots": "node scripts/build-shots.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^8.17.10",
