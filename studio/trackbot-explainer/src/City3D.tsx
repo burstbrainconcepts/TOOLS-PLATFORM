@@ -159,10 +159,10 @@ const Courier: React.FC<{ distance: number; yawRate: number; frame: number }> = 
   return <group rotation={[0, 0, -steer * 0.45]} position={[0, Math.sin(frame / 3.1) * 0.008, 0]} scale={1.6}><primitive object={model} /></group>;
 };
 
-export const City3D: React.FC<{ width: number; height: number; progress?: [number, number]; dusk?: boolean }> = ({ width, height, progress = [0.02, 0.98], dusk = false }) => {
+export const City3D: React.FC<{ width: number; height: number; progress?: [number, number]; dusk?: boolean; timeScale?: number }> = ({ width, height, progress = [0.02, 0.98], dusk = false, timeScale = 1 }) => {
   const Q = 0.67; // render scale: fewer pixels for the CPU renderer
   const rw = Math.round(width * Q), rh = Math.round(height * Q);
-  const frame = useCurrentFrame();
+  const frame = useCurrentFrame() * timeScale; // timeScale 2 + a 15 fps composition = same motion, half the frames
   const tex = useMemo(() => [1, 2, 3].map((fl, i) => ({ map: windowTexture(fl * 2, i + 3, dusk ? '#8A6A66' : '#B8C4D4'), em: emissiveTexture(fl * 2, i + 3) })), [dusk]);
   const buildings = useMemo(() => {
     const out: B[] = [];
