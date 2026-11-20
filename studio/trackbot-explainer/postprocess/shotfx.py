@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """CPU post-processing for rendered shots, with quality gates.
 
-  interpolate  IN.mp4 OUT.mp4   2x frame rate with RIFE 4.25 lite (ONNX, MIT). Gate: checks on the input itself that
-                                interpolation will not smear; exits 3 if it would (render that shot at full rate instead).
+  interpolate  IN.mp4 OUT.mp4   2x frame rate with RIFE 4.25 lite (ONNX, MIT). Gate: scores every frame pair from the input
+                                alone, lists the stretches to re-render at full rate, exits 3 if too many are weak.
   upscale      IN.mp4 OUT.mp4   Real-ESRGAN (NCNN, BSD-3) 2x/3x. Gate: the result downscaled must match the input.
 
 Python 3.11 recommended (the realesrgan-ncnn-py wheel). See README.md.
@@ -32,24 +32,45 @@ def crossfade(a, b):
     return cv2.addWeighted(a, 0.5, b, 0.5, 0)
 
 
-def gate_interpolation(frames, mid_fn, samples=6, min_psnr=18.0, min_gain=3.0):
-    """Holdout test on the input frames: predict frame i+1 from frames i and i+2 and compare with the real frame i+1.
-    The gap is twice what the real 2x interpolation will bridge, so passing is conservative.
-    Returns a dict with 'ok', the measured numbers and the reason when it fails."""
+GATE_MAX_SIDE = 960          # the gate runs on frames shrunk to this size (4x cheaper, same verdict)
+
+
+def _small(f, max_side=GATE_MAX_SIDE):
+    h, w = f.shape[:2]; k = max_side / max(h, w)
+    return f if k >= 1 else cv2.resize(f, (round(w * k), round(h * k)), interpolation=cv2.INTER_AREA)
+
+
+def pair_scores(frames, mid_fn):
+    """Predicted interpolation quality (dB) for every consecutive pair of input frames, without any reference.
+    For each interior frame k, frames k-1 and k+1 are interpolated and compared with the real frame k (a harder job than
+    the real one). A pair's score is the worse of its two neighbouring holdout scores."""
     n = len(frames)
-    if n < 3:
-        return {'ok': False, 'reason': 'need at least 3 frames', 'psnr': None, 'gain_db': None}
-    idx = sorted({int(round(x)) for x in np.linspace(0, n - 3, min(samples, n - 2))})
-    ps, gains = [], []
-    for i in idx:
-        mid = mid_fn(frames[i], frames[i + 2]); truth = frames[i + 1]
-        p, c = psnr(mid, truth), psnr(crossfade(frames[i], frames[i + 2]), truth)
-        ps.append(p); gains.append(p - c)
-    out = {'psnr': float(np.mean(ps)), 'gain_db': float(np.mean(gains)), 'worst_psnr': float(np.min(ps)), 'samples': len(idx)}
-    ok = out['psnr'] >= min_psnr and out['gain_db'] >= min_gain
-    out['ok'] = ok
-    out['reason'] = None if ok else f"mean PSNR {out['psnr']:.1f} dB (min {min_psnr}) / gain over cross-fade {out['gain_db']:.1f} dB (min {min_gain})"
+    if n < 3: return None
+    sm = [_small(f) for f in frames]
+    hold = {k: psnr(mid_fn(sm[k - 1], sm[k + 1]), sm[k]) for k in range(1, n - 1)}
+    return [min(hold[k] for k in (j, j + 1) if k in hold) for j in range(n - 1)]
+
+
+def merge_ranges(idx):
+    out = []
+    for i in sorted(idx):
+        if out and i == out[-1][1] + 1: out[-1][1] = i
+        else: out.append([i, i])
     return out
+
+
+def gate_interpolation(frames, mid_fn, min_pair_psnr=20.0, max_bad_fraction=0.15):
+    """Per-pair gate. 'ok' is False when more than max_bad_fraction of the pairs are predicted to interpolate badly.
+    'rerender_frames_2x' lists inclusive frame ranges (at the doubled frame rate) to render at full rate instead."""
+    scores = pair_scores(frames, mid_fn)
+    if scores is None:
+        return {'ok': False, 'reason': 'need at least 3 frames', 'pair_psnr': [], 'bad_pairs': [], 'bad_fraction': 1.0, 'rerender_frames_2x': []}
+    bad = [j for j, v in enumerate(scores) if v < min_pair_psnr]
+    frac = len(bad) / len(scores)
+    ok = frac <= max_bad_fraction
+    return {'ok': ok, 'pair_psnr': [round(v, 1) for v in scores], 'bad_pairs': bad, 'bad_fraction': round(frac, 3),
+            'rerender_frames_2x': [[2 * a, 2 * b + 2] for a, b in merge_ranges(bad)],
+            'reason': None if ok else f'{len(bad)} of {len(scores)} pairs ({frac:.0%}) predicted below {min_pair_psnr:g} dB (max allowed {max_bad_fraction:.0%})'}
 
 
 def gate_upscale(low, up, min_psnr=30.0):
@@ -89,9 +110,16 @@ def make_mid_fn(sess):
     return mid
 
 
+def parse_rate(text):
+    """ffprobe prints rates like '30/1' (sometimes with a trailing comma or newline)."""
+    tok = text.strip().split(',')[0].strip()
+    n, _, d = tok.partition('/')
+    return float(n) / float(d or 1)
+
+
 def probe_fps(path):
-    r = subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'csv=p=0', path]).decode().strip()
-    n, d = r.split('/'); return float(n) / float(d)
+    out = subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'default=noprint_wrappers=1:nokey=1', path]).decode()
+    return parse_rate(out)
 
 
 def read_frames(path, tmp):
@@ -113,13 +141,14 @@ def cmd_interpolate(a):
     with tempfile.TemporaryDirectory() as tmp:
         frames = read_frames(a.input, tmp)
         mid = make_mid_fn(rife_session(a.threads))
-        g = gate_interpolation(frames, mid, a.samples, a.min_psnr, a.min_gain)
+        g = gate_interpolation(frames, mid, a.min_pair_psnr, a.max_bad_fraction)
         report = {'command': 'interpolate', 'input_frames': len(frames), 'input_fps': fps, 'gate': g}
-        print('gate:', json.dumps(g))
+        print('gate:', {k: g[k] for k in ('ok', 'bad_fraction', 'rerender_frames_2x', 'reason')})
+        if g['bad_pairs'] and g['ok']: print('NOTE: some pairs are predicted weak; consider re-rendering these frame ranges at full rate:', g['rerender_frames_2x'])
         if a.check_only or (not g['ok'] and not a.force):
             if a.report: json.dump(report, open(a.report, 'w'), indent=2)
             if not g['ok']:
-                print('REJECTED: ' + g['reason'] + ' -> render this shot at full frame rate instead (or pass --force).', file=sys.stderr); return EXIT_GATE
+                print('REJECTED: ' + g['reason'] + '\n  Render these output-frame ranges at full frame rate (inclusive): ' + str(g['rerender_frames_2x']) + '\n  (or the whole shot at full rate, or pass --force)', file=sys.stderr); return EXIT_GATE
             return 0
         t = time.time(); out = []
         for i in range(len(frames) - 1):
@@ -165,8 +194,9 @@ def main(argv=None):
         s.add_argument('--report'); s.add_argument('--audio', action='store_true', help='copy the input audio into the output')
         s.add_argument('--force', action='store_true', help='write the output even if the quality gate fails')
     i = sub.choices['interpolate']
-    i.add_argument('--check-only', action='store_true'); i.add_argument('--samples', type=int, default=6)
-    i.add_argument('--min-psnr', type=float, default=18.0); i.add_argument('--min-gain', type=float, default=3.0)
+    i.add_argument('--check-only', action='store_true')
+    i.add_argument('--min-pair-psnr', type=float, default=20.0, help='a pair predicted below this PSNR (dB) is flagged')
+    i.add_argument('--max-bad-fraction', type=float, default=0.15, help='reject the shot if more than this fraction of pairs is flagged')
     i.add_argument('--threads', type=int, default=os.cpu_count() or 4)
     u = sub.choices['upscale']; u.add_argument('--scale', type=int, choices=(2, 3, 4), default=2); u.add_argument('--min-roundtrip', type=float, default=30.0)
     a = p.parse_args(argv)

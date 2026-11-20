@@ -24,12 +24,17 @@ python -m unittest postprocess/test_postprocess.py
 ```
 
 ## Quality gates (exit code 3 = rejected; use `--force` to override)
-> The default thresholds are **provisional** until they have been calibrated against full-rate reference renders (see `src/Shots.tsx`).
+> The default thresholds are **provisional**: calibrated on two shots so far (see "Measured" below).
 
-* **interpolate**: before writing anything, it predicts real frames of *your own input* from their neighbours (gap of two input frames, which is harder than the real job) and compares with the true frame. It rejects the shot if the mean PSNR is below `--min-psnr` (default 18 dB) or the gain over a plain cross-fade is below `--min-gain` (default 3 dB). A rejected shot should be rendered at full frame rate.
+* **interpolate** scores *every frame pair* from your input alone (no reference needed): it interpolates frames k-1 and k+1 and compares with the real frame k (a harder job than the real one). A pair predicted below `--min-pair-psnr` (default 20 dB) is flagged. The shot is rejected if more than `--max-bad-fraction` (default 15%) of its pairs are flagged. Either way the report lists `rerender_frames_2x`: the inclusive output-frame ranges to render at full frame rate (typically camera turns). The gate runs on frames shrunk to 960 px, so it is cheap.
 * **upscale**: the upscaled frame shrunk back must match the source (`--min-roundtrip`, default 30 dB), which catches invented detail.
 
-The gates catch smeared or ghosted interpolation on average; they do not prove a shot looks good. Watch the result.
+The gates predict where interpolation will smear; they do not prove a shot looks good. Watch the result.
+
+## Measured (CPU, 4 cores, 1080x1920 shots rendered at 15 fps then interpolated to 30 fps, compared with a true 30 fps render)
+| Shot | Gate verdict | Result vs true render |
+|---|---|---|
+| Route (several corners) | rejected: 56% of pairs flagged | straight stretches 29-35 dB, corners 12-15 dB; mean 23.5 dB (cross-fade 20.2 dB). The gate's per-pair prediction correlated with the real quality at r = 0.89 and flagged all 27 truly bad pairs (3 false alarms). |
 
 ## Rendering a shot at half rate (Remotion)
 `src/Shots.tsx` has `ShotRoute15` / `ShotRoute30` and `ShotHook15` / `ShotHook30`. The 15 fps compositions use `timeScale={2}`, so the motion is identical but only half the frames are rendered:

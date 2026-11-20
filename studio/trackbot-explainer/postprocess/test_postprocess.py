@@ -28,19 +28,40 @@ class Helpers(unittest.TestCase):
         self.assertTrue((pp.crossfade(a, b) == 150).all())
 
 
+class Rate(unittest.TestCase):
+    def test_parse_rate_variants(self):
+        self.assertEqual(pp.parse_rate('15/1,'), 15.0)
+        self.assertEqual(pp.parse_rate('30/1\n'), 30.0)
+        self.assertAlmostEqual(pp.parse_rate('30000/1001'), 29.97, 2)
+        self.assertEqual(pp.parse_rate('24'), 24.0)
+
+
 class Gate(unittest.TestCase):
     def test_good_interpolator_passes(self):
         fr = frames_moving()
-        # an "oracle" that returns the true middle frame: must beat the cross-fade by a lot
-        mids = {id(fr[i]): fr[i + 1] for i in range(len(fr) - 2)}
-        g = pp.gate_interpolation(fr, lambda a, b: mids[id(a)], samples=5)
+        mids = {id(fr[i]): fr[i + 1] for i in range(len(fr) - 2)}          # oracle: returns the true middle frame
+        g = pp.gate_interpolation(fr, lambda a, b: mids[id(a)])
         self.assertTrue(g['ok'], g)
-        self.assertGreater(g['gain_db'], 3.0)
+        self.assertEqual(g['bad_pairs'], [])
 
     def test_crossfade_interpolator_is_rejected(self):
-        g = pp.gate_interpolation(frames_moving(), pp.crossfade, samples=5)
+        g = pp.gate_interpolation(frames_moving(), pp.crossfade, min_pair_psnr=30)
         self.assertFalse(g['ok'])
-        self.assertIn('gain over cross-fade', g['reason'])
+        self.assertEqual(g['rerender_frames_2x'], [[0, 2 * (len(frames_moving()) - 2) + 2]])
+        self.assertIn('predicted below', g['reason'])
+
+    def test_partially_bad_shot_lists_ranges(self):
+        fr = frames_moving(9)
+        good = {id(fr[i]): fr[i + 1] for i in range(len(fr) - 2)}
+        mixed = lambda a, b: good[id(a)] if id(a) in [id(x) for x in fr[:4]] else pp.crossfade(a, b)   # good on the first frames only
+        g = pp.gate_interpolation(fr, mixed, min_pair_psnr=30, max_bad_fraction=0.9)
+        self.assertTrue(g['ok'])
+        self.assertTrue(0 < len(g['bad_pairs']) < 8, g)
+        self.assertEqual(g['rerender_frames_2x'][-1][1], 2 * g['bad_pairs'][-1] + 2)
+
+    def test_merge_ranges(self):
+        self.assertEqual(pp.merge_ranges([5, 1, 2, 3, 9]), [[1, 3], [5, 5], [9, 9]])
+        self.assertEqual(pp.merge_ranges([]), [])
 
     def test_too_few_frames(self):
         self.assertFalse(pp.gate_interpolation(frames_moving(2), pp.crossfade)['ok'])
