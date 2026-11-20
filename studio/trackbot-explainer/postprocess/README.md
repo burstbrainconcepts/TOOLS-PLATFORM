@@ -24,7 +24,7 @@ python -m unittest postprocess/test_postprocess.py
 ```
 
 ## Quality gates (exit code 3 = rejected; use `--force` to override)
-> The default thresholds are **provisional**: calibrated on two shots so far (see "Measured" below).
+> The default thresholds (20 dB per pair, 15% flagged) were calibrated on two shots (see "Measured" below). Two shots is a small sample: re-check them when the scenes change.
 
 * **interpolate** scores *every frame pair* from your input alone (no reference needed): it interpolates frames k-1 and k+1 and compares with the real frame k (a harder job than the real one). A pair predicted below `--min-pair-psnr` (default 20 dB) is flagged. The shot is rejected if more than `--max-bad-fraction` (default 15%) of its pairs are flagged. Either way the report lists `rerender_frames_2x`: the inclusive output-frame ranges to render at full frame rate (typically camera turns). The gate runs on frames shrunk to 960 px, so it is cheap.
 * **upscale**: the upscaled frame shrunk back must match the source (`--min-roundtrip`, default 30 dB), which catches invented detail.
@@ -42,3 +42,14 @@ The gates predict where interpolation will smear; they do not prove a shot looks
 npx remotion render src/index.ts ShotRoute15 out/shots/ShotRoute15.mp4 --gl=swangle --concurrency=2 --timeout=240000
 python postprocess/shotfx.py interpolate out/shots/ShotRoute15.mp4 out/shots/ShotRoute30_from15.mp4
 ```
+| Hook (straight ride) | passed: 0% flagged | every frame 31-34 dB, mean 33.7 dB (cross-fade 27.2 dB, hold-previous-frame 23.7 dB). Prediction vs real quality r = 0.89. |
+
+### What it saves (render time scales with frame count)
+* Per 3D frame at 1080x1920: about 7.8 s to render, about 2.5 s to interpolate (4 threads) and about 0.6 s for the gate. Rendering half the frames and interpolating the rest therefore saves roughly **30%** on a straight shot (hook), and about **half** that when most of a shot is a camera turn (the corner stretches must be rendered at full rate).
+* For slow renderers the saving is larger: a Blender frame costs about 56 s at 540x960, so interpolating costs about 5%, saving close to **half**.
+* Absolute render times measured here were noisy because other jobs ran at the same time; the frame counts are the reliable part.
+
+### Limits
+* RIFE smears small, fast-moving parts (the rider's head and arms) in weak stretches, and a high PSNR does not guarantee it looks right.
+* Measured on stylised 3D renders with the 4.25-lite model only; not tested on live-action or photoreal footage.
+
