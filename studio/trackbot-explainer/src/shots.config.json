@@ -1,0 +1,4 @@
+[
+  { "id": "hook", "sceneKind": "hook", "progress": [0.07, 0.34], "dusk": true },
+  { "id": "route", "sceneKind": "route", "progress": [0.35, 0.98], "dusk": false }
+]

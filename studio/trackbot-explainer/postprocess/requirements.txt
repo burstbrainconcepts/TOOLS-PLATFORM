@@ -1,0 +1,5 @@
+# Python 3.11 recommended (the realesrgan-ncnn-py wheel is not published for 3.13).
+numpy
+opencv-python-headless
+onnxruntime
+realesrgan-ncnn-py   # optional: only for the `upscale` command

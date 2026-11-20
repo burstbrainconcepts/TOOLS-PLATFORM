@@ -1,0 +1,49 @@
+{
+  "title": "What really happens when you send money?",
+  "brand": "VAULT ID",
+  "tag": "HOW MONEY MOVES",
+  "cta": "VAULT",
+  "scenes": [
+    {
+      "kind": "tap",
+      "text": "You tap send. Your money leaves.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "crash",
+      "text": "But what if the app crashes halfway?",
+      "emotion": "worried"
+    },
+    {
+      "kind": "check",
+      "text": "First, the server checks that you really have enough money.",
+      "emotion": "happy"
+    },
+    {
+      "kind": "begin",
+      "text": "Then it opens a transaction. Every step must work, or none of them do.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "debit",
+      "text": "It takes the money out of your balance, and writes a record in the history.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "rollback",
+      "text": "If anything fails here, it rolls back. Your balance goes back, as if nothing happened.",
+      "emotion": "worried"
+    },
+    {
+      "kind": "commit",
+      "text": "If everything works, it commits. Now the change is locked in, for good.",
+      "emotion": "happy"
+    },
+    {
+      "kind": "outro",
+      "text": "Want to see how it works? Comment VAULT, and I will show you how.",
+      "emotion": "happy"
+    }
+  ],
+  "character": "ada"
+}

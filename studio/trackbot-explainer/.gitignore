@@ -1,0 +1,7 @@
+node_modules
+out
+private/
+public/private-voice/
+exp/
+public/exp/
+public/shots/

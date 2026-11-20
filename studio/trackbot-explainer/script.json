@@ -1,0 +1,59 @@
+{
+  "title": "How does a delivery tracker know where your order is?",
+  "brand": "TRACKBOT",
+  "cta": "TRACK",
+  "scenes": [
+    {
+      "kind": "hook",
+      "text": "Your order is on the road.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "wait",
+      "text": "So how does the shop know exactly where it is?",
+      "emotion": "surprised"
+    },
+    {
+      "kind": "start",
+      "text": "First, the delivery person taps start. Their phone asks permission to share its location.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "gps",
+      "text": "The phone works out where it is, by listening to signals from satellites in space.",
+      "emotion": "happy"
+    },
+    {
+      "kind": "send",
+      "text": "Every few seconds, it sends that position to the shop's server.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "route",
+      "text": "The server then works out the road route, and the next turn.",
+      "emotion": "neutral"
+    },
+    {
+      "kind": "push",
+      "text": "And it pushes every new position straight to your screen. No refreshing.",
+      "emotion": "happy"
+    },
+    {
+      "kind": "arrive",
+      "text": "The dot moves on the map until it reaches your door.",
+      "emotion": "happy"
+    },
+    {
+      "kind": "confirm",
+      "text": "Then you tap, I received my order.",
+      "emotion": "happy"
+    },
+    {
+      "kind": "outro",
+      "text": "Want to see how it works? Comment TRACK, and I will show you how.",
+      "emotion": "happy"
+    }
+  ],
+  "character": "ada",
+  "tag": "LIVE TRACKING"
+}
