@@ -12,7 +12,7 @@ export type FigureProps = {
   shirt?: string; pants?: string; shoe?: string;
   emotion?: 'neutral' | 'happy' | 'surprised' | 'worried';
   armR?: number; armL?: number; legL?: number; legR?: number; // degrees from straight down; positive = outward
-  phone?: boolean; box?: boolean; talk?: number;
+  phone?: boolean; box?: boolean; talk?: number; glasses?: boolean;
 };
 
 const Limb: React.FC<{ x: number; y: number; a: number; len: number; w: number; c: string; side: 1 | -1 }> = ({ x, y, a, len, w, c, side }) => {
@@ -24,7 +24,7 @@ const endOf = (x: number, y: number, a: number, len: number, side: 1 | -1): [num
 // Feet at (0,0), about 320 tall.
 export const Figure: React.FC<FigureProps> = ({
   frame = 0, skin = '#8D5524', hair = '#14100D', hairStyle = 'puff', shirt = K.blue, pants = K.ink, shoe = '#fff',
-  emotion = 'neutral', armR = 12, armL = 12, legL = 4, legR = -4, phone, box, talk = 0,
+  emotion = 'neutral', armR = 12, armL = 12, legL = 4, legR = -4, phone, box, talk = 0, glasses,
 }) => {
   const bob = Math.sin(frame / 14) * 1.5;
   const bp = (frame + 30) % 110; const blink = bp < 5 ? 0.15 : 1;
@@ -60,6 +60,7 @@ export const Figure: React.FC<FigureProps> = ({
         {hairStyle === 'short' && <path d="M-38 -6 Q-38 -42 0 -42 Q38 -42 38 -6 Q22 -26 0 -26 Q-22 -26 -38 -6Z" fill={hair} stroke={K.ink} strokeWidth={3} />}
         {hairStyle === 'helmet' && <g><path d="M-42 -2 Q-44 -52 0 -52 Q44 -52 42 -2Z" fill={K.accent} stroke={K.ink} strokeWidth={5} /><path d="M-4 -2 L46 -2 L40 8 L-4 8Z" fill="#1B1B1F" opacity={0.85} /></g>}
         {[-14, 14].map((x) => <ellipse key={x} cx={x} cy={2} rx={4.5} ry={5.5 * blink} fill={K.ink} />)}
+        {glasses && <g fill="none" stroke={K.ink} strokeWidth={3.5}><circle cx={-14} cy={2} r={11.5} /><circle cx={14} cy={2} r={11.5} /><line x1={-2.5} y1={2} x2={2.5} y2={2} /></g>}
         <path d={`M-24 ${-12 + (emotion === 'surprised' ? -6 : 0)} Q-14 ${-18 + (emotion === 'worried' ? 4 : 0)} -6 ${-12}`} fill="none" stroke={K.ink} strokeWidth={3.5} strokeLinecap="round" />
         <path d={`M24 ${-12 + (emotion === 'surprised' ? -6 : 0)} Q14 ${-18 + (emotion === 'worried' ? 4 : 0)} 6 ${-12}`} fill="none" stroke={K.ink} strokeWidth={3.5} strokeLinecap="round" />
         {m > 0.1

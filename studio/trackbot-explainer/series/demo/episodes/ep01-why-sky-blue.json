@@ -1,0 +1,13 @@
+{
+  "id": "demo-ep01-sky",
+  "cast": ["ada", "mel"],
+  "scenes": [
+    { "template": "hook", "who": ["mel"], "emotion": "surprised", "title": "Why is the sky blue?", "text": "Why is the sky blue, and not green?" },
+    { "template": "talk", "who": ["ada", "mel"], "speaker": "ada", "setting": "street", "emotion": "happy", "text": "Great question, Mel. Sunlight looks white, but it is really every colour mixed together." },
+    { "template": "flow", "who": ["ada"], "icons": ["bolt", "cloud", "star"], "labels": ["Sunlight", "Air", "Your eyes"], "text": "Sunlight hits the air, and the air bounces it around before it reaches your eyes." },
+    { "template": "board", "who": ["ada"], "title": "Blue scatters most", "bullets": ["Short waves scatter more", "Blue is the shortest here", "So blue fills the sky"], "text": "Blue light has short waves, so it scatters the most. That is why blue fills the whole sky." },
+    { "template": "talk", "who": ["mel", "ada"], "speaker": "mel", "setting": "room", "emotion": "surprised", "text": "So why are sunsets red?" },
+    { "template": "stat", "who": ["ada"], "stat": { "value": "Longer path", "label": "at sunset the light travels through more air" }, "text": "At sunset, light travels through much more air, so the blue is scattered away and red is left." },
+    { "template": "outro", "who": ["ada", "mel"], "text": "Got a why? Comment it and we will answer next." }
+  ]
+}
