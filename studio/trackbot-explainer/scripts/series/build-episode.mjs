@@ -18,7 +18,7 @@ const { errors, warnings, seconds } = lintEpisode(bible, ep);
 const continuity = resolveSceneContinuity(bible, ep);
 for (const m of [...be, ...errors, ...continuity.errors]) console.error(`ERROR  ${m}`);
 for (const m of warnings) console.warn(`warn   ${m}`);
-if (be.length || errors.length) process.exit(1);
+if (be.length || errors.length || continuity.errors.length) process.exit(1);
 console.log(`lint ok: ${ep.scenes.length} scenes, about ${seconds.toFixed(0)}s`);
 
 import { spawnSync } from 'node:child_process';
