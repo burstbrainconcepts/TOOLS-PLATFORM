@@ -18,6 +18,7 @@ on:
       - "studio/trackbot-explainer/package-lock.json"
       - "studio/trackbot-explainer/scripts/series/**"
       - "studio/trackbot-explainer/UGC_FACTORY.md"
+      - "studio/trackbot-explainer/examples/**"
   pull_request:
     branches:
       - ccr-0ffd1b4b-vcvwl5
