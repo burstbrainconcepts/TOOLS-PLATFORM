@@ -36,7 +36,7 @@ export const ClassroomPreview: React.FC = () => {
   const scene = useMemo(() => classroomPreviewScene, []);
   return (
     <AbsoluteFill style={{ backgroundColor: '#241b19' }}>
-      <Scene3D f={f} scene={scene} ctx={ctx} quality={0.65} />
+      <Scene3D f={f} scene={scene} ctx={ctx} quality={1} />
     </AbsoluteFill>
   );
 };
