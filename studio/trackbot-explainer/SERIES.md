@@ -63,3 +63,11 @@ templates draw titles, cards and captions on top. Each character picks a body wi
 `studio` (stage with bokeh), `room`, `street` (coloured backdrops) and `park`: a forest trail with grass and a dirt path (ambientCG CC0 textures), pines,
 ferns, boulders and a fallen trunk (Poly Haven CC0 scans). Fetch the park models once with `python3 scripts/fetch-nature.py` (about 60 MB, not committed).
 Set `"setting": "park"` on a scene. Heavier sets render slower (a park still takes about 1 minute on CPU).
+
+### Location catalogue (3D mode)
+Set `"setting"` on a scene to one of: `studio`, `room`, `street` (coloured backdrops), `park` (3D forest trail with scrolling), or a photographic location:
+`urban` (city canal and skyline), `plaza`, `alley`, `market` (covered market street), `cafe`, `shop`, `office` (modern lobby), `hall`, `gym`,
+`field` (open sports field), `farm`, `orchard`, `woods`. Each is a real location photo (Poly Haven CC0, blurred slightly for depth of field) behind a
+matching textured floor (ambientCG CC0), lit by that location's own HDRI. To add one: put its entry in `src/Settings3D.tsx`, copy the 1k HDRI into
+`public/pbr/hdri/`, add a floor texture folder under `public/pbr/` if needed, run `scripts/make-backdrops.py`, and add the name to `SETTINGS` in `scripts/series/lib.mjs`.
+Limits: the backdrop is a flat photo (no parallax), the floor/backdrop seam is visible at the horizon, and a stadium crowd is not available as a free HDRI.

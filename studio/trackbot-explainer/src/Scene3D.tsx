@@ -142,8 +142,8 @@ export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?:
             {!park && !photo && <Floor mood={mood} setting={setting} />}
             <hemisphereLight args={['#ffffff', '#555566', 0.45]} />
             <directionalLight position={[-4, 8, 7]} intensity={2.4} color="#fff3e2" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-4} shadow-camera-right={4} shadow-camera-top={4} shadow-camera-bottom={-1} shadow-camera-near={2} shadow-camera-far={24} shadow-bias={-0.0004} />
-            <pointLight position={[-3.2, 2.6, -2.5]} intensity={26} color={ctx.palette.accent} distance={14} />
-            <pointLight position={[3.4, 2.4, -2.5]} intensity={22} color={ctx.palette.accent2} distance={14} />
+            <pointLight position={[-3.2, 2.6, -2.5]} intensity={park || photo ? 5 : 26} color={park || photo ? '#ffffff' : ctx.palette.accent} distance={14} />
+            <pointLight position={[3.4, 2.4, -2.5]} intensity={park || photo ? 4 : 22} color={park || photo ? '#fff4e0' : ctx.palette.accent2} distance={14} />
             <People f={f} scene={scene} ctx={ctx} />
           </Suspense>
         </ThreeCanvas>
