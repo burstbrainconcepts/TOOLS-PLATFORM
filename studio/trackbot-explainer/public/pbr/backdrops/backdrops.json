@@ -1,0 +1,54 @@
+{
+ "urban": {
+  "hdri": "canary_wharf",
+  "yaw": 190
+ },
+ "plaza": {
+  "hdri": "piazza_bologni",
+  "yaw": 120
+ },
+ "alley": {
+  "hdri": "braustuble_alley",
+  "yaw": 240
+ },
+ "market": {
+  "hdri": "leadenhall_market",
+  "yaw": 340
+ },
+ "cafe": {
+  "hdri": "comfy_cafe",
+  "yaw": 40
+ },
+ "shop": {
+  "hdri": "decor_shop",
+  "yaw": 90
+ },
+ "office": {
+  "hdri": "cinema_lobby",
+  "yaw": 230
+ },
+ "hall": {
+  "hdri": "entrance_hall",
+  "yaw": 250
+ },
+ "gym": {
+  "hdri": "crossfit_gym",
+  "yaw": 60
+ },
+ "field": {
+  "hdri": "belfast_open_field",
+  "yaw": 290
+ },
+ "farm": {
+  "hdri": "belfast_farmhouse",
+  "yaw": 180
+ },
+ "orchard": {
+  "hdri": "citrus_orchard_road",
+  "yaw": 20
+ },
+ "woods": {
+  "hdri": "epping_forest_01",
+  "yaw": 330
+ }
+}

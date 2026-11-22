@@ -1,4 +1,7 @@
 import React from 'react';
+import * as THREE from 'three';
+import { useLoader } from '@react-three/fiber';
+import { staticFile } from 'remotion';
 import { Ground } from './Park3D';
 
 // Photographic 3D settings: a real 360-degree location photo (Poly Haven CC0 HDRI) as a softly blurred backdrop that also lights the
@@ -26,3 +29,17 @@ export const PHOTO: Record<string, Photo> = {
 export const PhotoFloor: React.FC<{ p: Photo }> = ({ p }) => (
   <Ground id={p.floor} w={300} d={300} z={-60} repeat={[p.repeat * 4, p.repeat * 4]} tint={p.tint} />
 );
+
+// The backdrop is a pre-rendered, slightly blurred crop of the location photo (scripts/make-backdrops.py) on a plane behind the set,
+// sized to fill the 3D camera's view exactly (vertical field of view 34 degrees, 9:16, horizon in the middle).
+const CAM_Z = 1920 / 309 / (2 * Math.tan((15 * Math.PI) / 180)), CAM_Y = (1386 - 960) / 309;
+export const PhotoBackdrop: React.FC<{ name: string }> = ({ name }) => {
+  const tex = useLoader(THREE.TextureLoader, staticFile(`pbr/backdrops/${name}.jpg`));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const dist = CAM_Z + 55, h = 2 * dist * Math.tan((17 * Math.PI) / 180);
+  return (
+    <mesh position={[0, CAM_Y, -55]}>
+      <planeGeometry args={[(h * 9) / 16, h]} /><meshBasicMaterial map={tex} toneMapped={false} fog={false} />
+    </mesh>
+  );
+};

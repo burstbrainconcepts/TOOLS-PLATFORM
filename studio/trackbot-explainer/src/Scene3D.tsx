@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { Person3D } from './Human3D';
 import { CAST_LAYOUT, perform, type Ctx, type TplScene } from './Templates';
 import { ParkSet } from './Park3D';
-import { PHOTO, PhotoFloor } from './Settings3D';
+import { PHOTO, PhotoFloor, PhotoBackdrop } from './Settings3D';
 
 // 3D stage for episodes with ctx.style === '3d'. The SVG templates still draw titles, cards and captions on top; only the
 // set and the people are 3D. Camera: telephoto-ish (fov 30) at 11.6 m, level, 1.38 m high, so that the screen position of a
@@ -134,9 +134,9 @@ export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?:
         <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0, antialias: false }} camera={{ position: [0, CAM_Y, CAM_Z], fov: 30, near: 1, far: 80 }}>
           <CameraRig />
           <Suspense fallback={<Loading />}>
-            <Env setting={setting} showBackground={park || !!photo} />
+            <Env setting={setting} showBackground={park} />
             {!park && !photo && <Cyclorama f={f} ctx={ctx} mood={mood} />}
-            {photo && <PhotoFloor p={photo} />}
+            {photo && <><PhotoBackdrop name={setting} /><PhotoFloor p={photo} /></>}
             {park && <ParkSet walk={scene.walk ? { dir: scene.walk.dir, dist: ((scene.walk.speed ?? (scene.walk.run ? 3.4 : 1.4)) * f) / 30 } : undefined} />}
             {photo ? (photo.fog && <fog attach="fog" args={photo.fog} />) : <fog attach="fog" args={park ? ['#bcd4e6', 16, 52] : [mood.bottom, 9, 26]} />}
             {!park && !photo && <Floor mood={mood} setting={setting} />}

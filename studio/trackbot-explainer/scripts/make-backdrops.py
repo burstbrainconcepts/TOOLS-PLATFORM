@@ -1,0 +1,51 @@
+"""Backdrops for the photographic 3D settings. For each setting's Poly Haven HDRI (CC0) this downloads the full-resolution tonemapped JPG
+panorama, searches the view direction (yaw) with the most detail and a usable exposure, and writes a sharp rectilinear crop that matches the
+3D camera (vertical field of view 34 degrees, portrait 9:16, horizon in the middle) with a light blur for a depth-of-field look.
+Usage: /path/to/python-with-opencv scripts/make-backdrops.py      -> public/pbr/backdrops/<setting>.jpg and backdrops.json (chosen yaw)"""
+import cv2, numpy as np, json, os, re, urllib.request
+SRC = open(os.path.join(os.path.dirname(__file__), '..', 'src', 'Settings3D.tsx')).read()
+SETTINGS = re.findall(r"^\s+(\w+):\s+\{ label: '[^']*', hdri: '(\w+?)_1k'", SRC, re.M)
+OUT = os.path.join(os.path.dirname(__file__), '..', 'public', 'pbr', 'backdrops'); os.makedirs(OUT, exist_ok=True)
+UA = {'User-Agent': 'video-pipeline-asset-fetch'}
+W, H, VFOV = 1440, 2560, 34.0
+
+def fetch(hid):
+    f = os.path.join('/tmp', f'pano_{hid}.jpg')
+    if not os.path.exists(f):
+        url = json.loads(urllib.request.urlopen(urllib.request.Request('https://api.polyhaven.com/files/' + hid, headers=UA), timeout=60).read())['tonemapped']['url']
+        open(f, 'wb').write(urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=300).read())
+    return cv2.imread(f)
+
+def view(pano, yaw, w=W, h=H, vfov=VFOV):
+    th = np.tan(np.radians(vfov / 2)); tw = th * w / h
+    xs = (np.arange(w) + 0.5) / w * 2 - 1; ys = 1 - (np.arange(h) + 0.5) / h * 2
+    X, Y = np.meshgrid(xs * tw, ys * th)
+    d = np.stack([X, Y, np.ones_like(X)], -1); d /= np.linalg.norm(d, axis=-1, keepdims=True)
+    cy, sy = np.cos(np.radians(yaw)), np.sin(np.radians(yaw))
+    x2 = d[..., 0] * cy + d[..., 2] * sy; z2 = -d[..., 0] * sy + d[..., 2] * cy
+    lon = np.arctan2(x2, z2); lat = np.arcsin(np.clip(d[..., 1], -1, 1))
+    ph, pw = pano.shape[:2]
+    mx = ((lon / np.pi + 1) / 2 * pw).astype(np.float32); my = ((0.5 - lat / np.pi) * ph).astype(np.float32)
+    return cv2.remap(pano, mx, my, cv2.INTER_CUBIC, borderMode=cv2.BORDER_WRAP)
+
+chosen = {}
+for name, hid in SETTINGS:
+    pano = fetch(hid)
+    best = (-1, 0)
+    for yaw in range(0, 360, 10):
+        v = view(pano, yaw, 180, 320)
+        g = cv2.cvtColor(v, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255
+        top = g[:150]                                    # the part above the horizon is what the backdrop shows
+        lum = float(top.mean()); lap = cv2.Laplacian(cv2.GaussianBlur(top, (0, 0), 1.0), cv2.CV_32F)
+        # detail must be spread over the frame (depth, many objects), not one close-up object: score the share of busy cells
+        cells = [float(lap[r * 30:(r + 1) * 30, c * 60:(c + 1) * 60].var()) for r in range(5) for c in range(3)]
+        busy = sum(1 for c in cells if c > 2e-4) / len(cells)
+        score = float(np.median(cells)) * busy * busy * (1.0 if 0.18 < lum < 0.85 else 0.25)
+        if score > best[0]: best = (score, yaw)
+    yaw = best[1]
+    img = view(pano, yaw)
+    img = cv2.GaussianBlur(img, (0, 0), 2.2)             # depth-of-field look
+    cv2.imwrite(os.path.join(OUT, name + '.jpg'), img, [cv2.IMWRITE_JPEG_QUALITY, 86])
+    chosen[name] = {'hdri': hid, 'yaw': yaw}
+    print(name, hid, 'yaw', yaw, os.path.getsize(os.path.join(OUT, name + '.jpg')) // 1024, 'KB')
+json.dump(chosen, open(os.path.join(OUT, 'backdrops.json'), 'w'), indent=1)
