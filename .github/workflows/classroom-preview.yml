@@ -51,7 +51,7 @@ jobs:
       - name: Install project dependencies
         run: npm ci
 
-      - name: Render full-resolution six-second classroom preview
+      - name: Type-check project source\n        run: npx tsc --noEmit\n\n      - name: Render full-resolution six-second classroom preview
         run: npx remotion render src/index.ts ClassroomPreview out/classroom-preview.mp4 --codec h264 --concurrency=2
 
       - name: Verify rendered video exists and is non-empty
