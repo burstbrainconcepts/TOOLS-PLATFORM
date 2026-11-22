@@ -1,0 +1,58 @@
+{
+  "id": "ugc-demo-series",
+  "brand": "Studio Demo",
+  "style": "2d",
+  "visualStyleId": "warm-editorial-2d",
+  "defaultLocationId": "classroom",
+  "palette": {
+    "accent": "#D77A42",
+    "accent2": "#397C9B",
+    "bg": "#F6EFE4",
+    "ink": "#25232A"
+  },
+  "characters": {
+    "ada": {
+      "name": "Ada",
+      "skin": "#B9784D",
+      "hair": "#382016",
+      "hairStyle": "puff",
+      "shirt": "#B75C35",
+      "pants": "#493B55",
+      "shoe": "#292B35",
+      "body": "f",
+      "voice": "en_US-lessac-medium",
+      "wardrobeId": "school-uniform"
+    },
+    "tunde": {
+      "name": "Tunde",
+      "skin": "#8D5738",
+      "hair": "#211813",
+      "hairStyle": "short",
+      "shirt": "#397C9B",
+      "pants": "#34445C",
+      "shoe": "#292B35",
+      "body": "m",
+      "voice": "en_US-ryan-high",
+      "wardrobeId": "school-uniform"
+    }
+  },
+  "locations": {
+    "classroom": {
+      "label": "Home classroom",
+      "setting": "room"
+    },
+    "studio": {
+      "label": "Neutral studio",
+      "setting": "studio"
+    }
+  },
+  "rules": {
+    "maxWordsPerScene": 24,
+    "targetSeconds": [
+      20,
+      50
+    ],
+    "requireCta": true,
+    "bannedPhrases": []
+  }
+}
