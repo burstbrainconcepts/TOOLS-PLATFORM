@@ -12,7 +12,7 @@ export type TplScene = {
   product?: { src: string; name?: string; tag?: string }; brand?: string; cta?: string;
   frames: number; mouth: number[];
 };
-export type Ctx = { chars: Record<string, CharSpec>; palette: Palette; brand?: string; cta?: string };
+export type Ctx = { chars: Record<string, CharSpec>; palette: Palette; brand?: string; cta?: string; style?: '2d' | '3d'; quality3d?: number };
 type P = { f: number; scene: TplScene; ctx: Ctx };
 
 const clampX = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
@@ -66,6 +66,7 @@ const StagePanel: React.FC<{ id: string; setting?: string; f: number; ctx: Ctx; 
   // parallax: far background, set and foreground drift at different speeds, so the scene has depth instead of being a flat slide
   const d = (f - 70) * 0.07;
   const far = `translate(${-d * 0.6} 0)`, mid = `translate(${-d * 0.25} 0)`, fg = `translate(${d * 0.35} 0)`;
+  if (ctx.style === '3d') return <g transform="translate(-84 270) scale(1.2)">{children}</g>;
   if (setting === 'street') return <Panel id={id} top="#CFE8FF" bottom="#D9D2C2"><g transform={mid}><Street frame={f} w={1040} h={980} speed={0} /><rect x={-40} y={800} width={1120} height={180} fill="#D9D2C2" /></g><g transform={fg}>{children}</g></Panel>;
   if (setting === 'room') return <Panel id={id} top="#F1EBDD" bottom="#D9D2C2" deco="room"><g transform={mid}><Room w={1040} h={980} f={f} /></g><g transform={fg}>{children}</g></Panel>;
   return (
@@ -81,7 +82,7 @@ const StagePanel: React.FC<{ id: string; setting?: string; f: number; ctx: Ctx; 
 // ---------- cast ----------
 // Deterministic "acting" derived from the voice track: nods and a raised hand on speech onsets, varied mouth shapes,
 // the listener looks toward the speaker, everyone breathes and sways a little. No randomness, so renders are repeatable.
-const perform = (f: number, mouth: number[], talking: boolean, seed: number, towards: number) => {
+export const perform = (f: number, mouth: number[], talking: boolean, seed: number, towards: number) => {
   const e = (i: number) => mouth[Math.max(0, Math.min(i, mouth.length - 1))] ?? 0;
   let since = 99;
   if (talking) for (let k = 0; k < 22; k++) { const i = f - k; if (i > 6 && e(i) - e(i - 5) > 0.4 && e(i - 5) < 0.2) { since = k; break; } }
@@ -110,6 +111,7 @@ const Actor: React.FC<{ c: CharSpec; x: number; y: number; s: number; f: number;
   );
 };
 const Cast: React.FC<P & { y?: number; s?: number; point?: boolean; xs?: number[] }> = ({ f, scene, ctx, y = 930, s = 1.55, point, xs }) => {
+  if (ctx.style === '3d') return null;
   const who = scene.who?.length ? scene.who : [Object.keys(ctx.chars)[0]];
   const speaker = scene.speaker ?? who[0];
   const pos = xs ?? (who.length === 1 ? [520] : who.length === 2 ? [300, 760] : [190, 520, 850]);
@@ -127,6 +129,12 @@ const TitlePill: React.FC<{ scene: TplScene; ctx: Ctx; f: number; y?: number; si
       <Lines x={0} y={-h / 2 + size * 1.0 + 16} t={scene.title} max={16} size={size} fill={ctx.palette.accent} />
     </g>
   );
+};
+
+// Where each template puts its cast (local 1040x980 layout coordinates). Mirrors the <Cast .../> calls below; the 3D stage reads it.
+export const CAST_LAYOUT: Record<string, { y?: number; s?: number; xs?: number[]; point?: boolean }> = {
+  talk: {}, hook: { s: 2.0, y: 940 }, board: { xs: [215], s: 1.5, point: true }, flow: { xs: [235], s: 1.3 },
+  stat: { s: 1.4 }, product: { xs: [210], s: 1.45, point: true }, outro: { s: 1.5 },
 };
 
 // ---------- templates ----------

@@ -39,7 +39,7 @@ const scenes = ep.scenes.map((s, i) => {
   return { ...s, who, speaker, audio: `episodes/${ep.id}/${file.split('/').pop()}`, audioFrames: t.audioFrames, frames: t.frames, mouth: t.mouth };
 });
 const total = scenes.reduce((a, s) => a + s.frames, 0);
-const props = { id: ep.id, fps: 30, total, ctx: { chars: bible.characters, palette: bible.palette, brand: bible.brand, cta: bible.cta }, scenes };
+const props = { id: ep.id, fps: 30, total, ctx: { chars: bible.characters, palette: bible.palette, brand: bible.brand, cta: bible.cta, style: bible.style ?? '2d', quality3d: bible.quality3d }, scenes };
 const out = `${outDir}/${ep.id}.props.json`;
 writeFileSync(out, JSON.stringify(props));
 console.log(`built ${out}: ${total} frames (${(total / 30).toFixed(1)}s)`);

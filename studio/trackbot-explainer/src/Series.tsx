@@ -2,6 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame, type CalculateMetadataFunction } from 'remotion';
 import { TEMPLATES, type Ctx, type TplScene } from './Templates';
 import { FONT } from './Acting';
+import { Scene3D } from './Scene3D';
 
 // "Episode" composition: renders any series episode or ad from props (see scripts/series/build-episode.mjs).
 export type EpisodeScene = TplScene & { audio: string; audioFrames: number };
@@ -62,7 +63,8 @@ const SceneView: React.FC<{ s: EpisodeScene; ctx: Ctx; index: number }> = ({ s, 
       <Audio src={staticFile(s.audio)} />
       {sfxFor(s, index === 0).map((e, i) => <Sequence key={i} from={e.at} durationInFrames={48}><Audio src={staticFile(`sfx/${e.file}.wav`)} volume={e.vol * 0.5} /></Sequence>)}
       <div style={{ position: 'absolute', inset: 0, opacity: fade, transform: `translateX(${enter * 90}px) scale(${k * (1 + enter * 0.03)})`, transformOrigin: `${40 + (s.frames % 3) * 20}% 60%` }}>
-        <Tpl f={f} scene={s} ctx={ctx} />
+        {ctx.style === '3d' && <Scene3D f={f} scene={s} ctx={ctx} quality={ctx.quality3d ?? 1} />}
+        <div style={{ position: 'absolute', inset: 0 }}><Tpl f={f} scene={s} ctx={ctx} /></div>
       </div>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(20,10,30,0.38) 100%)' }} />
       <div style={{ position: 'absolute', bottom: 150, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
