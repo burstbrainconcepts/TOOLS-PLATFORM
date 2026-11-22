@@ -29,9 +29,9 @@ const Prop: React.FC<{ name: string; x: number; z: number; h: number; rot?: numb
   return <group position={[x, 0, z]} rotation={[0, rot, 0]}><primitive object={obj} /></group>;
 };
 
-const Ground: React.FC<{ id: string; w: number; d: number; z: number; y?: number; repeat: [number, number]; tint?: string }> = ({ id, w, d, z, y = 0, repeat, tint = '#ffffff' }) => {
+export const Ground: React.FC<{ id: string; w: number; d: number; z: number; y?: number; repeat: [number, number]; tint?: string; scroll?: [number, number] }> = ({ id, w, d, z, y = 0, repeat, tint = '#ffffff', scroll = [0, 0] }) => {
   const [diff, nor, rough] = useLoader(THREE.TextureLoader, pbr(id));
-  for (const t of [diff, nor, rough]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); t.anisotropy = 4; }
+  for (const t of [diff, nor, rough]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); t.offset.set(scroll[0], scroll[1]); t.anisotropy = 4; }
   diff.colorSpace = THREE.SRGBColorSpace;
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, y, z]} receiveShadow>
@@ -48,11 +48,27 @@ const SMALL: [string, number, number, number, number][] = [
   ['dandelion_01', -1.2, -1.3, 0.3, 0], ['dandelion_01', 1.5, -1.7, 0.3, 1.2], ['dandelion_01', -3.0, -1.9, 0.3, 2.5], ['dandelion_01', 3.5, -1.2, 0.3, 0.7],
 ];
 
-export const ParkSet: React.FC = () => (
-  <group>
-    <Ground id="grass_001" w={140} d={90} z={-30} repeat={[46, 30]} tint="#c9d8b0" />
-    <Ground id="ground_037" w={3.6} d={60} z={-26} y={0.012} repeat={[2, 26]} tint="#d8c3a5" />
-    {TREES.map(([n, x, z, h], i) => <Prop key={`t${i}`} name={n} x={x} z={z} h={h} rot={i * 1.7} />)}
-    {SMALL.map(([n, x, z, h, r], i) => <Prop key={`s${i}`} name={n} x={x} z={z} h={h} rot={r} shadow={z > -4} />)}
-  </group>
-);
+// walk = { dir, dist }: the characters walk in profile toward `dir` (+1 = screen right), so the world moves the other way by `dist` metres.
+// Without it the trail runs away from the camera and nothing moves.
+const WRAP = 30;
+export const ParkSet: React.FC<{ walk?: { dir: number; dist: number } }> = ({ walk }) => {
+  const sx = walk ? -walk.dir * walk.dist : 0;
+  const wrapX = (x: number) => (((x + sx + WRAP / 2) % WRAP) + WRAP) % WRAP - WRAP / 2;
+  const gx = walk ? [-(sx / 3.04), 0] as [number, number] : [0, 0] as [number, number];
+  return (
+    <group>
+      {walk
+        ? <>
+            <Ground id="grass_001" w={140} d={90} z={-30} repeat={[46, 30]} tint="#c9d8b0" scroll={gx} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, -1]} />
+            <group rotation={[0, Math.PI / 2, 0]} position={[0, 0, -1]}><Ground id="ground_037" w={3.6} d={90} z={0} y={0.012} repeat={[2, 40]} tint="#d8c3a5" scroll={[0, -sx / 2.25]} /></group>
+          </>
+        : <>
+            <Ground id="grass_001" w={140} d={90} z={-30} repeat={[46, 30]} tint="#c9d8b0" />
+            <Ground id="ground_037" w={3.6} d={60} z={-26} y={0.012} repeat={[2, 26]} tint="#d8c3a5" />
+          </>}
+      {TREES.map(([n, x, z, h], i) => <Prop key={`t${i}`} name={n} x={walk ? wrapX(x * 1.6) : x} z={walk ? Math.min(z, -5) : z} h={h} rot={i * 1.7} />)}
+      {SMALL.map(([n, x, z, h, r], i) => <Prop key={`s${i}`} name={n} x={walk ? wrapX(x * 1.7) : x} z={walk ? (z > -2.2 ? z - 2.4 : z) : z} h={h} rot={r} shadow={z > -4} />)}
+    </group>
+  );
+};

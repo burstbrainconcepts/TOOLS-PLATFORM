@@ -10,6 +10,7 @@ export type TplScene = {
   template: string; text: string; who?: string[]; speaker?: string; setting?: string; emotion?: string;
   title?: string; bullets?: string[]; icons?: string[]; labels?: string[]; stat?: { value: string; label: string };
   product?: { src: string; name?: string; tag?: string }; brand?: string; cta?: string;
+  walk?: { dir: 1 | -1; speed?: number; run?: boolean };   // 3D only: characters walk in profile (dir = screen direction) while the set scrolls past
   frames: number; mouth: number[];
 };
 export type Ctx = { chars: Record<string, CharSpec>; palette: Palette; brand?: string; cta?: string; style?: '2d' | '3d'; quality3d?: number };

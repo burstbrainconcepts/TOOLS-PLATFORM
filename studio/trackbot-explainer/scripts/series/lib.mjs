@@ -1,6 +1,6 @@
 // Series engine core: bible + episode validation ("lint"). Pure functions, no I/O, unit-tested.
 export const TEMPLATES = ['talk', 'hook', 'board', 'flow', 'stat', 'product', 'outro'];
-export const SETTINGS = ['studio', 'room', 'street', 'park'];
+export const SETTINGS = ['studio', 'room', 'street', 'park', 'urban', 'plaza', 'alley', 'market', 'cafe', 'shop', 'office', 'hall', 'gym', 'field', 'farm', 'orchard', 'woods'];
 export const ICONS = ['phone', 'wifi', 'cloud', 'server', 'lock', 'key', 'coin', 'check', 'pin', 'home', 'heart', 'bolt', 'shield', 'mail', 'star', 'cart'];
 export const EMOTIONS = ['neutral', 'happy', 'surprised', 'worried'];
 const SUPERLATIVES = ['best', 'fastest', 'cheapest', 'first', 'only', 'guaranteed', 'proven', 'miracle', 'cure', 'cures', 'no. 1', '#1', 'number one', 'risk-free', '100%', 'instantly', 'perfect'];
