@@ -19,6 +19,8 @@ for (const m of warnings) console.warn(`warn   ${m}`);
 if (be.length || errors.length) process.exit(1);
 console.log(`lint ok: ${ep.scenes.length} scenes, about ${seconds.toFixed(0)}s`);
 
+import { spawnSync } from 'node:child_process';
+if (!existsSync('public/sfx/bed.wav')) spawnSync('python3', ['scripts/lib/sound.py'], { stdio: 'inherit' });   // procedural sfx + music bed
 const defaultWho = Object.keys(bible.characters)[0];
 const dir = `public/episodes/${ep.id}`; mkdirSync(dir, { recursive: true }); mkdirSync(outDir, { recursive: true });
 const scenes = ep.scenes.map((s, i) => {

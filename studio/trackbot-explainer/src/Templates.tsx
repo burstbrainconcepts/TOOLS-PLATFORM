@@ -63,26 +63,49 @@ const Stage: React.FC<{ id: string; setting?: string; f: number; ctx: Ctx; over?
   </>
 );
 const StagePanel: React.FC<{ id: string; setting?: string; f: number; ctx: Ctx; children: React.ReactNode }> = ({ id, setting = 'studio', f, ctx, children }) => {
-  if (setting === 'street') return <Panel id={id} top="#CFE8FF" bottom="#D9D2C2"><Street frame={f} w={1040} h={980} speed={0} /><rect y={800} width={1040} height={180} fill="#D9D2C2" />{children}</Panel>;
-  if (setting === 'room') return <Panel id={id} top="#F1EBDD" bottom="#D9D2C2" deco="room"><Room w={1040} h={980} f={f} />{children}</Panel>;
+  // parallax: far background, set and foreground drift at different speeds, so the scene has depth instead of being a flat slide
+  const d = (f - 70) * 0.07;
+  const far = `translate(${-d * 0.6} 0)`, mid = `translate(${-d * 0.25} 0)`, fg = `translate(${d * 0.35} 0)`;
+  if (setting === 'street') return <Panel id={id} top="#CFE8FF" bottom="#D9D2C2"><g transform={mid}><Street frame={f} w={1040} h={980} speed={0} /><rect x={-40} y={800} width={1120} height={180} fill="#D9D2C2" /></g><g transform={fg}>{children}</g></Panel>;
+  if (setting === 'room') return <Panel id={id} top="#F1EBDD" bottom="#D9D2C2" deco="room"><g transform={mid}><Room w={1040} h={980} f={f} /></g><g transform={fg}>{children}</g></Panel>;
   return (
     <Panel id={id} top={ctx.palette.bg} bottom="#D9D2C2" deco="none">
       <rect width={1040} height={980} fill={ctx.palette.bg} />
-      <circle cx={820} cy={260} r={380} fill={ctx.palette.accent} opacity={0.10} /><circle cx={160} cy={700} r={260} fill={ctx.palette.accent2} opacity={0.10} />
+      <g transform={far}><circle cx={820} cy={260} r={380} fill={ctx.palette.accent} opacity={0.10} /><circle cx={160} cy={700} r={260} fill={ctx.palette.accent2} opacity={0.10} /></g>
       <rect y={860} width={1040} height={120} fill="#D9D2C2" /><rect y={852} width={1040} height={10} fill="#C9C1AE" />
-      {children}
+      <g transform={fg}>{children}</g>
     </Panel>
   );
 };
 
 // ---------- cast ----------
-const Actor: React.FC<{ c: CharSpec; x: number; y: number; s: number; f: number; mouth: number; emotion: string; point?: boolean; talking: boolean }> = ({ c, x, y, s, f, mouth, emotion, point, talking }) => {
+// Deterministic "acting" derived from the voice track: nods and a raised hand on speech onsets, varied mouth shapes,
+// the listener looks toward the speaker, everyone breathes and sways a little. No randomness, so renders are repeatable.
+const perform = (f: number, mouth: number[], talking: boolean, seed: number, towards: number) => {
+  const e = (i: number) => mouth[Math.max(0, Math.min(i, mouth.length - 1))] ?? 0;
+  let since = 99;
+  if (talking) for (let k = 0; k < 22; k++) { const i = f - k; if (i > 6 && e(i) - e(i - 5) > 0.4 && e(i - 5) < 0.2) { since = k; break; } }
+  const env = since < 22 ? Math.sin((Math.PI * since) / 22) : 0;
+  const open = e(f);
+  return {
+    env,
+    head: 2.2 * Math.sin(f / 19 + seed) + (talking ? 3.2 * env : 1.2 * Math.sin(f / 33 + seed)),
+    lean: 1.4 * Math.sin(f / 41 + seed) + (talking ? 1.6 * env : 0),
+    brow: talking ? 0.25 + 0.8 * env : 0,
+    look: towards * (talking ? 0.12 : 0.65),
+    mouthW: talking && open > 0.12 ? 0.75 + 0.6 * (((Math.floor(f / 3) * 37 + seed * 11) % 5) / 4) : 1,
+    elbow: talking ? 48 * env : 0,
+  };
+};
+const Actor: React.FC<{ c: CharSpec; x: number; y: number; s: number; f: number; mouth: number; mouthArr: number[]; emotion: string; point?: boolean; talking: boolean; seed: number; towards: number }> = ({ c, x, y, s, f, mouth, mouthArr, emotion, point, talking, seed, towards }) => {
   const wave = Math.sin(f / 9), g = talking && mouth > 0.12 ? 0.55 + 0.45 * Math.sin(f / 20) : 0;
   const armR = point ? 96 + wave * 4 : 12 + g * 55 + (talking && mouth > 0.12 ? wave * 5 : 0);
+  const pf = perform(f, mouthArr, talking, seed, towards);
   return (
     <g transform={`translate(${x} ${y}) scale(${s})`}>
       <Figure frame={f} skin={c.skin} hair={c.hair} hairStyle={c.hairStyle ?? 'short'} shirt={c.shirt} pants={c.pants} shoe={c.shoe} glasses={c.glasses}
-        emotion={(emotion as 'neutral') ?? 'neutral'} armR={armR} armL={12 + (talking ? 0 : 3)} talk={talking ? mouth : 0} legL={5} legR={-5} />
+        emotion={(emotion as 'neutral') ?? 'neutral'} armR={armR} armL={12 + (talking ? 0 : 3)} talk={talking ? mouth : 0} legL={5} legR={-5}
+        head={pf.head} lean={pf.lean} brow={pf.brow} look={pf.look} mouthW={pf.mouthW} elbowR={point ? 0 : pf.elbow} />
     </g>
   );
 };
@@ -90,7 +113,8 @@ const Cast: React.FC<P & { y?: number; s?: number; point?: boolean; xs?: number[
   const who = scene.who?.length ? scene.who : [Object.keys(ctx.chars)[0]];
   const speaker = scene.speaker ?? who[0];
   const pos = xs ?? (who.length === 1 ? [520] : who.length === 2 ? [300, 760] : [190, 520, 850]);
-  return <>{who.map((id, i) => ctx.chars[id] && <Actor key={id} c={ctx.chars[id]} x={pos[i]} y={y} s={who.length > 1 ? s * 0.92 : s} f={f + i * 11} mouth={mouthAt(scene, f)} emotion={id === speaker ? (scene.emotion ?? 'neutral') : 'happy'} talking={id === speaker} point={point && id === speaker} />)}</>;
+  const sx = pos[Math.max(0, who.indexOf(speaker))];
+  return <>{who.map((id, i) => ctx.chars[id] && <Actor key={id} c={ctx.chars[id]} x={pos[i]} y={y} s={who.length > 1 ? s * 0.92 : s} f={f + i * 11} mouth={mouthAt(scene, f)} mouthArr={scene.mouth} emotion={id === speaker ? (scene.emotion ?? 'neutral') : 'happy'} talking={id === speaker} point={point && id === speaker} seed={i * 2.1 + 0.7} towards={Math.sign(sx - pos[i])} />)}</>;
 };
 const TitlePill: React.FC<{ scene: TplScene; ctx: Ctx; f: number; y?: number; size?: number }> = ({ scene, ctx, f, y = 330, size = 72 }) => {
   if (!scene.title) return null;

@@ -13,6 +13,13 @@ export type FigureProps = {
   emotion?: 'neutral' | 'happy' | 'surprised' | 'worried';
   armR?: number; armL?: number; legL?: number; legR?: number; // degrees from straight down; positive = outward
   phone?: boolean; box?: boolean; talk?: number; glasses?: boolean;
+  // performance controls (all default to 0 = the old static pose)
+  head?: number;      // head tilt, degrees
+  look?: number;      // -1..1 face/eye direction (fake turn)
+  lean?: number;      // upper-body lean, degrees
+  elbowR?: number;    // bends the right forearm (degrees) for gestures
+  brow?: number;      // -1..1 eyebrow lift
+  mouthW?: number;    // mouth width multiplier (1 = normal)
 };
 
 const Limb: React.FC<{ x: number; y: number; a: number; len: number; w: number; c: string; side: 1 | -1 }> = ({ x, y, a, len, w, c, side }) => {
@@ -25,10 +32,13 @@ const endOf = (x: number, y: number, a: number, len: number, side: 1 | -1): [num
 export const Figure: React.FC<FigureProps> = ({
   frame = 0, skin = '#8D5524', hair = '#14100D', hairStyle = 'puff', shirt = K.blue, pants = K.ink, shoe = '#fff',
   emotion = 'neutral', armR = 12, armL = 12, legL = 4, legR = -4, phone, box, talk = 0, glasses,
+  head = 0, look = 0, lean = 0, elbowR = 0, brow = 0, mouthW = 1,
 }) => {
   const bob = Math.sin(frame / 14) * 1.5;
   const bp = (frame + 30) % 110; const blink = bp < 5 ? 0.15 : 1;
-  const [rx, ry] = endOf(32, -212, armR, 108, 1);
+  const [ex1, ey1] = endOf(32, -212, armR, 58, 1);
+  const [rx, ry] = elbowR ? endOf(ex1, ey1, armR + elbowR, 56, 1) : endOf(32, -212, armR, 108, 1);
+  const breath = 1 + Math.sin(frame / 17) * 0.006;
   const [lx, ly] = endOf(-32, -212, armL, 108, -1);
   const [lfx, lfy] = endOf(-14, -118, legL, 118, -1);
   const [rfx, rfy] = endOf(14, -118, legR, 118, 1);
@@ -42,31 +52,37 @@ export const Figure: React.FC<FigureProps> = ({
       <Limb x={14} y={-118} a={legR} len={118} w={30} c={pants} side={1} />
       <ellipse cx={lfx - 6} cy={lfy + 2} rx={22} ry={11} fill={shoe} stroke={K.ink} strokeWidth={4} />
       <ellipse cx={rfx + 6} cy={rfy + 2} rx={22} ry={11} fill={shoe} stroke={K.ink} strokeWidth={4} />
+      <g transform={`rotate(${lean} 0 -118) translate(0 -118) scale(1 ${breath}) translate(0 118)`}>
       {/* torso */}
       <rect x={-36} y={-228} width={72} height={118} rx={26} fill={shirt} stroke={K.ink} strokeWidth={5} />
       {/* arms (behind-hand first) */}
       <Limb x={-32} y={-212} a={armL} len={108} w={26} c={shirt} side={-1} />
       <circle cx={lx} cy={ly} r={14} fill={skin} stroke={K.ink} strokeWidth={4} />
-      <Limb x={32} y={-212} a={armR} len={108} w={26} c={shirt} side={1} />
+      {elbowR
+        ? <><Limb x={32} y={-212} a={armR} len={58} w={26} c={shirt} side={1} /><Limb x={ex1} y={ey1} a={armR + elbowR} len={56} w={24} c={shirt} side={1} /></>
+        : <Limb x={32} y={-212} a={armR} len={108} w={26} c={shirt} side={1} />}
       <circle cx={rx} cy={ry} r={14} fill={skin} stroke={K.ink} strokeWidth={4} />
       {phone && <g transform={`translate(${rx + 6} ${ry - 28}) rotate(-12)`}><rect x={-14} y={-24} width={28} height={50} rx={6} fill="#fff" stroke={K.ink} strokeWidth={4} /><rect x={-9} y={-18} width={18} height={30} rx={3} fill={K.blue} opacity={0.85} /></g>}
       {box && <g transform={`translate(${rx - 4} ${ry - 20})`}><rect x={-34} y={-30} width={68} height={56} rx={6} fill={K.accent} stroke={K.ink} strokeWidth={5} /><rect x={-34} y={-14} width={68} height={10} fill="#fff" opacity={0.6} /></g>}
       {/* neck + head */}
       <rect x={-10} y={-250} width={20} height={26} fill={skin} stroke={K.ink} strokeWidth={4} />
-      <g transform="translate(0 -285)">
+      <g transform={`translate(0 -250) rotate(${head}) translate(0 -35)`}>
         {hairStyle === 'puff' && [[-30, -22, 22], [30, -22, 22], [0, -36, 28], [-16, -34, 20], [16, -34, 20]].map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} fill={hair} />)}
         <circle cx={0} cy={0} r={38} fill={skin} stroke={K.ink} strokeWidth={5} />
         {hairStyle === 'puff' && <path d="M-36 -10 Q0 -48 36 -10 Q22 -30 0 -30 Q-22 -30 -36 -10Z" fill={hair} />}
         {hairStyle === 'short' && <path d="M-38 -6 Q-38 -42 0 -42 Q38 -42 38 -6 Q22 -26 0 -26 Q-22 -26 -38 -6Z" fill={hair} stroke={K.ink} strokeWidth={3} />}
         {hairStyle === 'helmet' && <g><path d="M-42 -2 Q-44 -52 0 -52 Q44 -52 42 -2Z" fill={K.accent} stroke={K.ink} strokeWidth={5} /><path d="M-4 -2 L46 -2 L40 8 L-4 8Z" fill="#1B1B1F" opacity={0.85} /></g>}
-        {[-14, 14].map((x) => <ellipse key={x} cx={x} cy={2} rx={4.5} ry={5.5 * blink} fill={K.ink} />)}
+        <g transform={`translate(${look * 6} 0)`}>
+        {[-14, 14].map((x) => <ellipse key={x} cx={x + look * 2.5} cy={2} rx={4.5} ry={5.5 * blink} fill={K.ink} />)}
         {glasses && <g fill="none" stroke={K.ink} strokeWidth={3.5}><circle cx={-14} cy={2} r={11.5} /><circle cx={14} cy={2} r={11.5} /><line x1={-2.5} y1={2} x2={2.5} y2={2} /></g>}
-        <path d={`M-24 ${-12 + (emotion === 'surprised' ? -6 : 0)} Q-14 ${-18 + (emotion === 'worried' ? 4 : 0)} -6 ${-12}`} fill="none" stroke={K.ink} strokeWidth={3.5} strokeLinecap="round" />
-        <path d={`M24 ${-12 + (emotion === 'surprised' ? -6 : 0)} Q14 ${-18 + (emotion === 'worried' ? 4 : 0)} 6 ${-12}`} fill="none" stroke={K.ink} strokeWidth={3.5} strokeLinecap="round" />
+        <path d={`M-24 ${-12 - brow * 5 + (emotion === 'surprised' ? -6 : 0)} Q-14 ${-18 + (emotion === 'worried' ? 4 : 0)} -6 ${-12}`} fill="none" stroke={K.ink} strokeWidth={3.5} strokeLinecap="round" />
+        <path d={`M24 ${-12 - brow * 5 + (emotion === 'surprised' ? -6 : 0)} Q14 ${-18 + (emotion === 'worried' ? 4 : 0)} 6 ${-12}`} fill="none" stroke={K.ink} strokeWidth={3.5} strokeLinecap="round" />
         {m > 0.1
-          ? <ellipse cx={0} cy={20} rx={10 - m * 2} ry={3 + m * 8} fill="#4A1620" stroke={K.ink} strokeWidth={3} />
+          ? <ellipse cx={0} cy={20} rx={(10 - m * 2) * mouthW} ry={3 + m * 8} fill="#4A1620" stroke={K.ink} strokeWidth={3} />
           : <path d={emotion === 'happy' ? 'M-14 16 Q0 32 14 16' : emotion === 'worried' ? 'M-10 24 Q0 16 10 24' : emotion === 'surprised' ? 'M-5 18 Q0 28 5 18 Q0 12 -5 18Z' : 'M-10 20 Q0 24 10 20'} fill={emotion === 'surprised' ? '#4A1620' : 'none'} stroke={K.ink} strokeWidth={3.5} strokeLinecap="round" />}
         {emotion === 'happy' && [-1, 1].map((s) => <ellipse key={s} cx={s * 26} cy={14} rx={8} ry={5} fill={K.accent} opacity={0.3} />)}
+        </g>
+      </g>
       </g>
     </g>
     </g>
