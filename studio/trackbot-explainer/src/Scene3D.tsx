@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { Person3D } from './Human3D';
 import { CAST_LAYOUT, perform, type Ctx, type TplScene } from './Templates';
 import { ParkSet } from './Park3D';
+import { ClassroomSet } from './Classroom3D';
 import { PHOTO, PhotoFloor, PhotoBackdrop } from './Settings3D';
 
 // 3D stage for episodes with ctx.style === '3d'. The SVG templates still draw titles, cards and captions on top; only the
@@ -21,10 +22,10 @@ export type Mood = { top: string; bottom: string; bokeh: [string, string]; floor
 export const moodFor = (ctx: Ctx, setting?: string): Mood => {
   const P = ctx.palette, c = (x: string) => new THREE.Color(x);
   if (setting === 'street') return { top: '#4d8fd6', bottom: '#b9d6ee', bokeh: ['#ffe9a8', '#ffffff'], floor: '#8f949c' };
-  if (setting === 'room') return { top: '#8a6f55', bottom: '#d8c2a3', bokeh: ['#ffd9a0', '#ffb36b'], floor: '#a68c70' };
+  if (setting === 'room' || setting === 'classroom') return { top: '#8a6f55', bottom: '#d8c2a3', bokeh: ['#ffd9a0', '#ffb36b'], floor: '#a68c70' };
   return { top: c(P.accent2).lerp(c('#0b0b18'), 0.62).getStyle(), bottom: c(P.bg).lerp(c(P.accent), 0.15).multiplyScalar(0.55).getStyle(), bokeh: [P.accent, P.accent2], floor: c(P.bg).lerp(c(P.accent), 0.15).multiplyScalar(0.55).lerp(c(P.accent2), 0.2).getStyle() };
 };
-const hdrFor = (setting?: string) => PHOTO[setting ?? '']?.hdri ?? (setting === 'street' || setting === 'park' ? 'kloppenheim_02_puresky_1k' : setting === 'room' ? 'brown_photostudio_02_1k' : 'studio_small_09_1k');
+const hdrFor = (setting?: string) => PHOTO[setting ?? '']?.hdri ?? (setting === 'street' || setting === 'park' ? 'kloppenheim_02_puresky_1k' : setting === 'room' || setting === 'classroom' ? 'brown_photostudio_02_1k' : 'studio_small_09_1k');
 
 const Env: React.FC<{ setting?: string; showBackground: boolean }> = ({ setting, showBackground }) => {
   const hdr = useLoader(RGBELoader, staticFile(`pbr/hdri/${hdrFor(setting)}.hdr`));
@@ -146,26 +147,28 @@ const Ball: React.FC<{ f: number; x0: number; t0: number }> = ({ f, x0, t0 }) =>
 
 export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?: number }> = ({ f, scene, ctx, quality = 1 }) => {
   const W = 1080, H = 1920, rw = Math.round(W * quality), rh = Math.round(H * quality);
-  const setting = scene.setting && (['room', 'street', 'park'].includes(scene.setting) || PHOTO[scene.setting]) ? scene.setting : (scene.template === 'board' ? 'room' : 'studio');
+  const setting = scene.setting && (['room', 'street', 'park', 'classroom'].includes(scene.setting) || PHOTO[scene.setting]) ? scene.setting : (scene.template === 'board' ? 'room' : 'studio');
   const mood = moodFor(ctx, setting);
   const park = setting === 'park';
+  const classroom = setting === 'classroom';
   const photo = PHOTO[setting];
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       <div style={{ width: rw, height: rh, transform: `scale(${1 / quality})`, transformOrigin: '0 0' }}>
-        <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0, antialias: false }} camera={{ position: [0, CAM_Y, CAM_Z], fov: 30, near: 1, far: 80 }}>
+        <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0, CAM_Y, CAM_Z], fov: 30, near: 1, far: 80 }}>
           <CameraRig />
           <Suspense fallback={<Loading />}>
             <Env setting={setting} showBackground={park} />
-            {!park && !photo && <Cyclorama f={f} ctx={ctx} mood={mood} />}
+            {!park && !photo && !classroom && <Cyclorama f={f} ctx={ctx} mood={mood} />}
+            {classroom && <ClassroomSet />}
             {photo && <><PhotoBackdrop name={setting} /><PhotoFloor p={photo} shift={scene.walk ? scene.walk.dir * (scene.walk.speed ?? (scene.walk.run ? 3.4 : 1.4)) * f / 30 : 0} /></>}
             {park && <ParkSet walk={scene.walk ? { dir: scene.walk.dir, dist: ((scene.walk.speed ?? (scene.walk.run ? 3.4 : 1.4)) * f) / 30 } : undefined} />}
             {photo ? (photo.fog && <fog attach="fog" args={photo.fog} />) : <fog attach="fog" args={park ? ['#bcd4e6', 16, 52] : [mood.bottom, 9, 26]} />}
-            {!park && !photo && <Floor mood={mood} setting={setting} />}
-            <hemisphereLight args={['#ffffff', '#555566', 0.45]} />
-            <directionalLight position={[-4, 8, 7]} intensity={2.4} color="#fff3e2" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-4} shadow-camera-right={4} shadow-camera-top={4} shadow-camera-bottom={-1} shadow-camera-near={2} shadow-camera-far={24} shadow-bias={-0.0004} />
-            <pointLight position={[-3.2, 2.6, -2.5]} intensity={park || photo ? 5 : 26} color={park || photo ? '#ffffff' : ctx.palette.accent} distance={14} />
-            <pointLight position={[3.4, 2.4, -2.5]} intensity={park || photo ? 4 : 22} color={park || photo ? '#fff4e0' : ctx.palette.accent2} distance={14} />
+            {!park && !photo && !classroom && <Floor mood={mood} setting={setting} />}
+            <hemisphereLight args={classroom ? ['#fff2df', '#6b5140', 0.75] : ['#ffffff', '#555566', 0.45]} />
+            <directionalLight position={[-4, 8, 7]} intensity={classroom ? 2.0 : 2.4} color={classroom ? '#ffd7a6' : '#fff3e2'} castShadow shadow-mapSize={classroom ? [1536, 1536] : [1024, 1024]} shadow-camera-left={-4} shadow-camera-right={4} shadow-camera-top={4} shadow-camera-bottom={-1} shadow-camera-near={2} shadow-camera-far={24} shadow-bias={-0.0004} />
+            <pointLight position={[-3.2, 2.6, -2.5]} intensity={park || photo ? 5 : classroom ? 7 : 26} color={park || photo ? '#ffffff' : ctx.palette.accent} distance={14} />
+            <pointLight position={[3.4, 2.4, -2.5]} intensity={park || photo ? 4 : classroom ? 5 : 22} color={park || photo ? '#fff4e0' : ctx.palette.accent2} distance={14} />
             <People f={f} scene={scene} ctx={ctx} />
             {scene.action?.type === 'kick' && <Ball f={f} x0={screenToWorldX((CAST_LAYOUT[scene.template]?.xs ?? (scene.who && scene.who.length > 1 ? [300, 760] : [520]))[0]) + 0.34} t0={Math.round((scene.action.at ?? 0.8) * 30)} />}
           </Suspense>
