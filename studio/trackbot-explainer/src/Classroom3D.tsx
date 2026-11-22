@@ -83,9 +83,9 @@ export const ClassroomSet: React.FC = () => (
     <Desk x={-0.47} z={0.78} scale={0.85} />
     <Desk x={0.39} z={0.78} scale={0.68} />
     <Desk x={1.24} z={0.78} scale={0.68} />
-    <Chair x={-0.47} z={-0.35} />
-    <Chair x={0.39} z={-0.35} />
-    <Chair x={1.24} z={-0.35} />
+    <Chair x={-0.47} z={1.62} />
+    <Chair x={0.39} z={1.62} />
+    <Chair x={1.24} z={1.62} />
     {/* Warm pendant lights */}
     {[ -2.6, 1.4 ].map((x) => (
       <group key={x} position={[x, 4.75, -2.8]}>
