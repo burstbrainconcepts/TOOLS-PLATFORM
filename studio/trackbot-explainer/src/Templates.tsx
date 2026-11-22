@@ -137,7 +137,7 @@ const TitlePill: React.FC<{ scene: TplScene; ctx: Ctx; f: number; y?: number; si
 export const CAST_LAYOUT: Record<string, { y?: number; s?: number; xs?: number[]; point?: boolean }> = {
   talk: {}, hook: { s: 2.0, y: 940 }, board: { xs: [215], s: 1.5, point: true }, flow: { xs: [235], s: 1.3 },
   stat: { s: 1.4 }, product: { xs: [210], s: 1.45, point: true }, outro: { s: 1.5 },
-  classroom: { xs: [150, 430, 690, 930], s: 1.2, point: true },
+  classroom: { xs: [170, 400, 620, 840], s: 1.2, point: true },
 };
 
 // ---------- templates ----------
