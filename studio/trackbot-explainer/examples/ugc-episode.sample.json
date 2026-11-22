@@ -1,0 +1,68 @@
+{
+  "id": "student-confidence-demo",
+  "type": "story",
+  "brief": {
+    "audience": "young adults",
+    "platform": "reels",
+    "objective": "encourage students to keep learning",
+    "tone": "warm and hopeful",
+    "durationSeconds": 30,
+    "language": "en",
+    "claimsAllowed": []
+  },
+  "cast": [
+    "ada",
+    "tunde"
+  ],
+  "scenes": [
+    {
+      "template": "hook",
+      "title": "ONE BAD RESULT?",
+      "text": "One bad result does not define your future.",
+      "who": [
+        "tunde"
+      ],
+      "speaker": "tunde",
+      "locationId": "classroom",
+      "emotion": "worried"
+    },
+    {
+      "template": "talk",
+      "text": "I studied hard, but I still failed the test.",
+      "who": [
+        "tunde",
+        "ada"
+      ],
+      "speaker": "tunde",
+      "locationId": "classroom",
+      "emotion": "worried"
+    },
+    {
+      "template": "board",
+      "title": "KEEP GOING",
+      "bullets": [
+        "Learn from mistakes",
+        "Ask for help",
+        "Try a new approach"
+      ],
+      "text": "Every mistake can teach you something useful.",
+      "who": [
+        "ada"
+      ],
+      "speaker": "ada",
+      "locationId": "classroom",
+      "emotion": "happy"
+    },
+    {
+      "template": "outro",
+      "text": "Take the next step. Keep learning, and share this with a friend.",
+      "who": [
+        "ada",
+        "tunde"
+      ],
+      "speaker": "ada",
+      "locationId": "classroom",
+      "emotion": "happy"
+    }
+  ]
+}
