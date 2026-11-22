@@ -1,4 +1,3 @@
-import json
 import re
 import subprocess
 import tempfile
@@ -47,8 +46,7 @@ def render(manifest: dict, job_id: str, progress=None) -> dict:
             is_image = asset.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}
             base = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
             if is_image:
-                frames = max(1, round(duration * fps))
-                zoom = f"zoompan=z='min(zoom+0.0008,1.08)':d={frames}:s={width}x{height}:fps={fps}"
+                zoom = f"zoompan=z='min(zoom+0.0008,1.08)':d=1:s={width}x{height}:fps={fps}"
                 vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},{zoom},setsar=1"
                 command = base + ["-loop", "1", "-i", str(asset), "-t", str(duration),
                                   "-vf", vf, "-an", "-r", str(fps),
