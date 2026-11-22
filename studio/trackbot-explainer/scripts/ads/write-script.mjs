@@ -24,7 +24,7 @@ export function writeAds(brief, { variants = ['problem', 'pov', 'meet'], idPrefi
   return variants.map((v) => {
     const h = HOOKS[v](b);
     const scenes = [
-      { template: 'hook', who: [lead], emotion: h.emotion, title: h.title, text: h.text },
+      { template: 'hook', who: side && b.walk ? [lead, side] : [lead], speaker: lead, emotion: h.emotion, title: h.title, text: h.text, ...(b.walk ? { walk: { dir: 1 } } : {}) },
       { template: 'product', who: [lead], useProduct: true, product: { src: productSrc, name: b.name, tag: b.price ? `${b.name}  ${b.price}` : b.name }, bullets: benefits.slice(0, 3), text: `${trim(b.name)} is made for ${low(b.audience ?? 'everyday life')}. ${trim(b.tagline)}.` },
       { template: 'board', who: [lead], title: 'What you get', bullets: benefits.slice(0, 4), text: `Here is what you get. ${benefits.slice(0, 3).map((x) => trim(x)).join('. ')}.` },
       ...(stat ? [{ template: 'stat', who: [lead], stat: { value: stat.n, label: stat.x.replace(stat.n, '').replace(/\s+/g, ' ').trim() || stat.x }, text: `${stat.x}.` }] : []),
@@ -32,6 +32,7 @@ export function writeAds(brief, { variants = ['problem', 'pov', 'meet'], idPrefi
       ...(b.offer ? [{ template: 'talk', who: [lead, ...(side ? [side] : [])], speaker: lead, setting: 'street', emotion: 'happy', text: `${trim(b.offer)}.${b.price ? ` ${trim(b.name)} is ${trim(b.price)}.` : ''}` }] : []),
       { template: 'outro', who: [lead, ...(side ? [side] : [])], brand: b.name, cta: trim(b.cta), text: `${trim(b.cta)}.` },
     ];
+    if (b.setting) for (const sc of scenes) sc.setting = b.setting;      // 3D: where the whole ad takes place
     return { id: `${slug}-${v}`, type: 'ad', cast: [lead], brief: { ...b, palette }, scenes };
   });
 }

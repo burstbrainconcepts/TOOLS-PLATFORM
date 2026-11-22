@@ -26,6 +26,8 @@ export type Pose3D = {
   step?: number;      // -1..1 weight shift between feet
   walk?: number;      // gait phase in radians (used with stride)
   stride?: number;    // 0 = standing, 1 = walking, 1.5 = running
+  kick?: number;      // 0..1 progress of a kick with the +x-side leg (undefined = none)
+  cheer?: number;     // 0..1 arms-up celebration
 };
 
 const D = Math.PI / 180;
@@ -67,6 +69,7 @@ const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
       c.metalness = 0;
       c.transparent = false; c.opacity = 1; c.depthWrite = true; c.alphaTest = cutout ? 0.45 : 0;
       if (/shirt|polo|top|sweater|camisole|bodice/i.test(m.name)) c.color.copy(colors.shirt);          // the shirt texture is white: tint it with the bible colour
+      if (/shorts/i.test(m.name)) c.color.copy(colors.pants);
       if (/pants|jeans|shorts|trousers/i.test(m.name)) { c.polygonOffset = true; c.polygonOffsetFactor = -2; c.polygonOffsetUnits = -2; }   // waistband wins over the shirt hem
       if (!cutout) c.side = THREE.FrontSide;
       return c;
@@ -106,18 +109,20 @@ const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
 const applyPose = (rig: Rig, p: Pose3D) => {
   const n = (a?: number) => a ?? 0;
   const lean = n(p.lean), step = n(p.step), nod = n(p.nod), look = n(p.look);
+  const kk = p.kick, ch = n(p.cheer);
   // desired WORLD-space rotation change per bone relative to rest; a bone without an entry inherits its parent's motion
   const d: Record<string, THREE.Quaternion> = {};
   const sr = n(p.stride), ph = n(p.walk), sn = Math.sin(ph), cs = Math.cos(ph);
-  const torso = mul(q('z', lean * 0.65), q('x', sr * 5));          // lean sideways, and forward when walking                       // lean of the upper body, shared by everything above the waist
+  const torso = mul(q('z', lean * 0.65), q('x', sr * 5 + (kk !== undefined ? -6 * Math.sin(Math.min(1, kk / 0.62) * Math.PI) : 0) - ch * 6));          // lean sideways, and forward when walking                       // lean of the upper body, shared by everything above the waist
   d.pelvis = mul(q('z', lean * 0.15), q('y', -sr * 5 * sn));
   d.spine_01 = q('z', lean * 0.3);
   d.spine_02 = q('z', lean * 0.5).multiply(q('y', look * 3));
   d.spine_03 = mul(torso, q('y', look * 5 + sr * 6 * sn));        // shoulders counter-rotate against the hips
   d.neck_01 = mul(torso, q('x', nod * 0.35), q('y', look * 8));
   d.head = mul(torso, q('z', n(p.head)), q('y', look * 14), q('x', nod * 0.65));
+  const kickArm = kk === undefined ? 0 : Math.sin(Math.min(1, kk / 0.62) * Math.PI) * 35;
   const swing = sr * 24;                                         // arms swing opposite to the legs
-  const arms: ['p' | 'n', number, number, number, number][] = [['p', 1, p.armR ?? 8, (p.elbowR ?? 8) + sr * 18 * Math.max(0, -sn), n(p.reachR) - swing * sn], ['n', -1, p.armL ?? 8, (p.elbowL ?? 8) + sr * 18 * Math.max(0, sn), swing * sn]];
+  const arms: ['p' | 'n', number, number, number, number][] = [['p', 1, (p.armR ?? 8) + ch * 150, (p.elbowR ?? 8) + sr * 18 * Math.max(0, -sn) + ch * 10, n(p.reachR) - swing * sn + kickArm * 0.4], ['n', -1, (p.armL ?? 8) + ch * 150, (p.elbowL ?? 8) + sr * 18 * Math.max(0, sn) + ch * 10, swing * sn + kickArm]];
   for (const [s, sign, out, el, reach] of arms) {
     const sf = rig.suf[s];
     // swing the arm from its rest direction (relaxed A-pose, measured from the bones) to `out` degrees away from vertical
@@ -130,11 +135,15 @@ const applyPose = (rig: Rig, p: Pose3D) => {
     for (let k = 1; k <= 3; k++) d[`thumb_0${k}${sf}`] = mul(fore, q('z', -sign * 3 * k * flat), q('x', sign * 2 * k));
     d[`clavicle${sf}`] = mul(torso, q('z', -sign * 5));                     // sloping shoulders
   }
+  // kick profile (degrees forward): wind back, whip through, follow through, recover
+  const kickF = kk === undefined ? 0 : kk < 0.4 ? -55 * (kk / 0.4) : kk < 0.62 ? -55 + 135 * ((kk - 0.4) / 0.22) : 80 * (1 - (kk - 0.62) / 0.38);
+  const kickKnee = kk === undefined ? 0 : kk < 0.4 ? 95 * (kk / 0.4) : kk < 0.62 ? 95 - 85 * ((kk - 0.4) / 0.22) : 10 + 20 * ((kk - 0.62) / 0.38);
   const A = 30 * sr;                                             // leg swing amplitude (degrees)
   for (const s of ['p', 'n'] as const) {
     const sg = s === 'p' ? 1 : -1;
-    const th = q('x', -(sg * step * 3 + A * sg * sn));            // positive swing = leg forward (+z)
-    const knee = sr * 48 * Math.max(0, sg * cs);                  // the knee flexes while the leg swings through
+    const kicking = kk !== undefined && s === 'p';
+    const th = q('x', -(kicking ? kickF : sg * step * 3 + A * sg * sn));   // positive swing = leg forward (+z)
+    const knee = kicking ? kickKnee : kk !== undefined ? 12 : sr * 48 * Math.max(0, sg * cs);   // the knee flexes while the leg swings through
     const leg = new THREE.Quaternion().setFromUnitVectors(rig.legDir[s], new THREE.Vector3(sg * Math.sin(2.5 * D), -Math.cos(2.5 * D), 0));
     d[`thigh${rig.suf[s]}`] = mul(th, leg);
     d[`calf${rig.suf[s]}`] = mul(th, leg, q('x', knee + (s === 'p' ? 1 : -1) * 0 + Math.max(0, sg * step) * 1.2));
@@ -184,7 +193,7 @@ const applyPose = (rig: Rig, p: Pose3D) => {
 };
 
 export const Person3D: React.FC<{ look: Look3D; pose?: Pose3D; position?: [number, number, number]; scale?: number; rotY?: number }> = ({ look, pose = {}, position = [0, 0, 0], scale = 1, rotY = 0 }) => {
-  const bounce = (pose.stride ?? 0) * 0.03 * (1 - Math.cos(2 * (pose.walk ?? 0))) / 2;   // two bounces per stride cycle
+  const bounce = (pose.stride ?? 0) * 0.03 * (1 - Math.cos(2 * (pose.walk ?? 0))) / 2 + (pose.cheer ? Math.abs(Math.sin((pose.walk ?? 0) * 1.5)) * 0.22 * pose.cheer : 0);   // two bounces per stride cycle
   const gltf = useLoader(GLTFLoader, staticFile(`models/human_${look.model ?? look.body ?? 'm'}.glb`));
   const key = JSON.stringify(look);
   const rig = useMemo(() => buildRig(gltf.scene, look), [gltf, key]);

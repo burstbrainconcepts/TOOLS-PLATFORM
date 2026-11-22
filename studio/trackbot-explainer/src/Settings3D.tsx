@@ -23,11 +23,12 @@ export const PHOTO: Record<string, Photo> = {
   field:   { label: 'Open sports field', hdri: 'belfast_open_field_1k', blur: 0.06, intensity: 0.55, rot: 0.0, floor: 'grass_001', repeat: 50, tint: '#c5e0a0', fog: ['#cfd9e3', 40, 120] },
   farm:    { label: 'Farmland', hdri: 'belfast_farmhouse_1k', blur: 0.06, intensity: 0.6, rot: 0.0, floor: 'grass_001', repeat: 50, tint: '#cfd8a8', fog: ['#c8d6e3', 40, 120] },
   orchard: { label: 'Orchard track', hdri: 'citrus_orchard_road_1k', blur: 0.06, intensity: 0.55, rot: 0.0, floor: 'gravel_043', repeat: 50, tint: '#d2b48c', fog: ['#d4dde6', 40, 120] },
+  stadium: { label: 'Football stadium (procedural crowd)', hdri: 'belfast_open_field_1k', blur: 0, intensity: 0.5, rot: 0.0, floor: 'pitch', repeat: 18.75, tint: '#ffffff', fog: null },
   woods:   { label: 'Woodland', hdri: 'epping_forest_01_1k', blur: 0.08, intensity: 0.6, rot: 0.0, floor: 'ground_037', repeat: 50, tint: '#b8a58a', fog: ['#b9c4a8', 22, 80] },
 };
 
-export const PhotoFloor: React.FC<{ p: Photo }> = ({ p }) => (
-  <Ground id={p.floor} w={300} d={300} z={-60} repeat={[p.repeat * 4, p.repeat * 4]} tint={p.tint} />
+export const PhotoFloor: React.FC<{ p: Photo; shift?: number }> = ({ p, shift = 0 }) => (
+  <Ground id={p.floor} w={300} d={300} z={-60} repeat={[p.repeat * 4, p.repeat * 4]} tint={p.tint} scroll={[shift / (300 / (p.repeat * 4)), 0]} />
 );
 
 // The backdrop is a pre-rendered, slightly blurred crop of the location photo (scripts/make-backdrops.py) on a plane behind the set,

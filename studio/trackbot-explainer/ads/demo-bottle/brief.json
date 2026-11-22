@@ -4,11 +4,17 @@
   "tagline": "A bottle made for the trail",
   "pain": "warm water on every hike",
   "audience": "hikers and gym-goers",
-  "benefits": ["Keeps drinks cold for 12 hours", "Leak-proof lid", "Fits most cup holders"],
+  "benefits": [
+    "Keeps drinks cold for 12 hours",
+    "Leak-proof lid",
+    "Fits most cup holders"
+  ],
   "price": "$24",
   "offer": "Free shipping this week",
   "cta": "Link in bio",
   "claimsAllowed": [],
   "presenter": "ada",
-  "sidekick": "mel"
+  "sidekick": "mel",
+  "setting": "woods",
+  "walk": true
 }

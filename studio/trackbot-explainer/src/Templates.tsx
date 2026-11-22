@@ -11,6 +11,7 @@ export type TplScene = {
   title?: string; bullets?: string[]; icons?: string[]; labels?: string[]; stat?: { value: string; label: string };
   product?: { src: string; name?: string; tag?: string }; brand?: string; cta?: string;
   walk?: { dir: 1 | -1; speed?: number; run?: boolean };   // 3D only: characters walk in profile (dir = screen direction) while the set scrolls past
+  action?: { type: 'kick' | 'cheer'; at?: number };   // 3D only: the first character kicks a ball (profile view) or celebrates, starting `at` seconds in
   frames: number; mouth: number[];
 };
 export type Ctx = { chars: Record<string, CharSpec>; palette: Palette; brand?: string; cta?: string; style?: '2d' | '3d'; quality3d?: number };

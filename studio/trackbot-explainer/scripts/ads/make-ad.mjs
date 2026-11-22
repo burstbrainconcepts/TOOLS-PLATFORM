@@ -30,6 +30,7 @@ const base = JSON.parse(readFileSync(opt('--bible') ?? 'series/demo/bible.json',
 const palette = { ...base.palette, accent: analysis.accent, accent2: analysis.accent2 };
 const bible = { ...base, id: `ad-${name}`, title: `Ad: ${brief.name}`, brand: brief.name, cta: brief.cta, palette, note: `Draft ads built from ads/${name}/brief.json. Review before posting.`,
   rules: { ...base.rules, targetSeconds: [15, 45], bannedPhrases: [...(base.rules?.bannedPhrases ?? []), 'doctors', 'cure'] } };
+if (opt('--q3d')) bible.quality3d = parseFloat(opt('--q3d'));
 const out = `out/ads/${name}/series`; rmSync(`${out}/episodes`, { recursive: true, force: true }); mkdirSync(`${out}/episodes`, { recursive: true });
 writeFileSync(`${out}/bible.json`, JSON.stringify(bible, null, 2));
 

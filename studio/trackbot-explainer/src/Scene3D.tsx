@@ -109,16 +109,38 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
         const armR = pointing ? 96 + wave * 4 : 12 + g * 55 + (talking && mouthAt > 0.12 ? wave * 5 : 0);
         const bp = (ff + 30 + seed * 40) % 110;
         const wk = scene.walk, cad = wk?.run ? 1.35 : 0.95;                       // gait cycles per second
-        const emotion = talking ? (scene.emotion ?? 'neutral') : 'happy';
+        const act = scene.action, t0 = Math.round((act?.at ?? 0.8) * 30);
+        const isKicker = act?.type === 'kick' && i === 0;
+        const kickK = isKicker && f >= t0 ? (f - t0) / 27 : undefined;                  // the kick takes 0.9 s
+        const cheer = act?.type === 'cheer' ? Math.min(1, Math.max(0, (f - t0) / 8)) : 0;
+        const emotion = cheer > 0 ? 'happy' : talking ? (scene.emotion ?? 'neutral') : 'happy';
         const scl = (s * (multi ? 0.92 : 1)) / 1.55;
         return (
           <Person3D key={id} look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses, body: c.body, model: c.model }}
-            position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={wk ? wk.dir * Math.PI / 2 : (pointing ? -0.15 : towards * (talking ? 0.1 : 0.32))}
-            pose={wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: pointing ? 6 : 10 + pf.elbow, elbowL: 10,
+            position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={isKicker ? Math.PI / 2 : wk ? wk.dir * Math.PI / 2 : (pointing ? -0.15 : towards * (talking ? 0.1 : 0.32))}
+            pose={isKicker || cheer > 0 ? { head: pf.head * 0.5, nod: cheer > 0 ? -8 : 3, look: 0, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: cheer > 0 ? 0.7 + 0.3 * Math.sin(f / 2) : 0, mouthW: 1.3, brow: cheer > 0 ? 0.8 : 0.2, blink: 1, emotion, breath: Math.sin(ff / 17) * 0.008, kick: kickK !== undefined && kickK <= 1 ? kickK : undefined, cheer, walk: (f - t0) * 0.31 } : wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: pointing ? 6 : 10 + pf.elbow, elbowL: 10,
               talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }} />
         );
       })}
     </>
+  );
+};
+
+// a football: white with dark panels, rolls at the kicker's feet and flies off when kicked
+const ballTexture = () => {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const g = c.getContext('2d')!; g.fillStyle = '#f4f4f2'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#1b1b1f';
+  for (const [x, y] of [[32, 40], [96, 90], [160, 36], [224, 84], [128, 14], [128, 114], [0, 84], [256, 40]]) { g.beginPath(); g.arc(x, y, 15, 0, Math.PI * 2); g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+};
+const Ball: React.FC<{ f: number; x0: number; t0: number }> = ({ f, x0, t0 }) => {
+  const tex = useMemo(() => ballTexture(), []);
+  const fi = t0 + 13, t = Math.max(0, (f - fi) / 30);
+  const y = Math.max(0.11, 0.11 + 4.2 * t - 4.9 * t * t);
+  return (
+    <mesh position={[x0 + 9 * t, y, -3 * t]} rotation={[t * 6, 0, -t * 9]} castShadow>
+      <sphereGeometry args={[0.11, 24, 16]} /><meshStandardMaterial map={tex} roughness={0.45} />
+    </mesh>
   );
 };
 
@@ -136,7 +158,7 @@ export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?:
           <Suspense fallback={<Loading />}>
             <Env setting={setting} showBackground={park} />
             {!park && !photo && <Cyclorama f={f} ctx={ctx} mood={mood} />}
-            {photo && <><PhotoBackdrop name={setting} /><PhotoFloor p={photo} /></>}
+            {photo && <><PhotoBackdrop name={setting} /><PhotoFloor p={photo} shift={scene.walk ? scene.walk.dir * (scene.walk.speed ?? (scene.walk.run ? 3.4 : 1.4)) * f / 30 : 0} /></>}
             {park && <ParkSet walk={scene.walk ? { dir: scene.walk.dir, dist: ((scene.walk.speed ?? (scene.walk.run ? 3.4 : 1.4)) * f) / 30 } : undefined} />}
             {photo ? (photo.fog && <fog attach="fog" args={photo.fog} />) : <fog attach="fog" args={park ? ['#bcd4e6', 16, 52] : [mood.bottom, 9, 26]} />}
             {!park && !photo && <Floor mood={mood} setting={setting} />}
@@ -145,6 +167,7 @@ export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?:
             <pointLight position={[-3.2, 2.6, -2.5]} intensity={park || photo ? 5 : 26} color={park || photo ? '#ffffff' : ctx.palette.accent} distance={14} />
             <pointLight position={[3.4, 2.4, -2.5]} intensity={park || photo ? 4 : 22} color={park || photo ? '#fff4e0' : ctx.palette.accent2} distance={14} />
             <People f={f} scene={scene} ctx={ctx} />
+            {scene.action?.type === 'kick' && <Ball f={f} x0={screenToWorldX((CAST_LAYOUT[scene.template]?.xs ?? (scene.who && scene.who.length > 1 ? [300, 760] : [520]))[0]) + 0.34} t0={Math.round((scene.action.at ?? 0.8) * 30)} />}
           </Suspense>
         </ThreeCanvas>
       </div>
