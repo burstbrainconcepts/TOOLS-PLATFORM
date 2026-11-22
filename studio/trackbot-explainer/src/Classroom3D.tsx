@@ -21,12 +21,12 @@ const Box: React.FC<{ position: [number, number, number]; size: [number, number,
 
 const Desk: React.FC<{ x: number; z: number; scale?: number }> = ({ x, z, scale = 1 }) => (
   <group position={[x, 0, z]} scale={scale}>
-    <Box position={[0, 0.83, 0]} size={[1.55, 0.12, 0.82]} material={woodLight} />
-    <Box position={[0, 0.75, 0]} size={[1.42, 0.035, 0.72]} material={wood} />
-    {[-0.63, 0.63].map((dx) => [-0.29, 0.29].map((dz) => (
+    <Box position={[0, 0.83, 0]} size={[1.05, 0.12, 0.82]} material={woodLight} />
+    <Box position={[0, 0.75, 0]} size={[0.98, 0.035, 0.72]} material={wood} />
+    {[-0.43, 0.43].map((dx) => [-0.29, 0.29].map((dz) => (
       <Box key={`${dx}-${dz}`} position={[dx, 0.39, dz]} size={[0.075, 0.78, 0.075]} material={metal} />
     )))}
-    <Box position={[0, 0.43, -0.32]} size={[1.25, 0.08, 0.06]} material={metal} />
+    <Box position={[0, 0.43, -0.32]} size={[0.9, 0.08, 0.06]} material={metal} />
     <Box position={[0, 0.98, -0.08]} size={[0.54, 0.055, 0.36]} material={bookMats[1]} />
     <Box position={[0.03, 1.02, -0.08]} size={[0.48, 0.018, 0.32]} material={paper} />
   </group>
@@ -81,7 +81,7 @@ export const ClassroomSet: React.FC = () => (
       <Box position={[1.25, 0.79, 0.18]} size={[0.42, 0.035, 0.025]} material={paper} />
     </group>
     {/* Foreground desks and chairs */}
-    <Desk x={-0.47} z={0.78} scale={0.68} />
+    <Desk x={-0.47} z={0.78} scale={0.85} />
     <Desk x={0.39} z={0.78} scale={0.68} />
     <Desk x={1.24} z={0.78} scale={0.68} />
     <Chair x={-0.47} z={-0.35} />
