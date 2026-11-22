@@ -16,6 +16,8 @@ on:
       - "studio/trackbot-explainer/public/pbr/hdri/**"
       - "studio/trackbot-explainer/package.json"
       - "studio/trackbot-explainer/package-lock.json"
+      - "studio/trackbot-explainer/scripts/series/**"
+      - "studio/trackbot-explainer/UGC_FACTORY.md"
   pull_request:
     branches:
       - ccr-0ffd1b4b-vcvwl5
@@ -68,6 +70,9 @@ jobs:
 
       - name: Type-check project source
         run: npx tsc --noEmit
+
+      - name: Test episode and continuity engine
+        run: npm test
 
       - name: Render full-resolution six-second classroom preview
         run: npx remotion render src/index.ts ClassroomPreview out/classroom-preview.mp4 --codec h264 --concurrency=2
