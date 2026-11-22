@@ -58,3 +58,8 @@ templates draw titles, cards and captions on top. Each character picks a body wi
 - Rendering is slow on CPU: about 4 s per 1080p frame, so a 30 s episode takes roughly 1.5 hours. Use `"quality3d": 0.75` to trade size for speed.
 - Limits: the shirt can be tinted but trousers and shoes keep their texture colours; teeth and tongue do not move with the jaw; the hair and glasses packs
   were not downloadable yet (a simple glasses model is used).
+
+### Settings in 3D mode
+`studio` (stage with bokeh), `room`, `street` (coloured backdrops) and `park`: a forest trail with grass and a dirt path (ambientCG CC0 textures), pines,
+ferns, boulders and a fallen trunk (Poly Haven CC0 scans). Fetch the park models once with `python3 scripts/fetch-nature.py` (about 60 MB, not committed).
+Set `"setting": "park"` on a scene. Heavier sets render slower (a park still takes about 1 minute on CPU).

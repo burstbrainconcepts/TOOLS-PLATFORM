@@ -6,6 +6,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import * as THREE from 'three';
 import { Person3D } from './Human3D';
 import { CAST_LAYOUT, perform, type Ctx, type TplScene } from './Templates';
+import { ParkSet } from './Park3D';
 
 // 3D stage for episodes with ctx.style === '3d'. The SVG templates still draw titles, cards and captions on top; only the
 // set and the people are 3D. Camera: telephoto-ish (fov 30) at 11.6 m, level, 1.38 m high, so that the screen position of a
@@ -22,14 +23,14 @@ export const moodFor = (ctx: Ctx, setting?: string): Mood => {
   if (setting === 'room') return { top: '#8a6f55', bottom: '#d8c2a3', bokeh: ['#ffd9a0', '#ffb36b'], floor: '#a68c70' };
   return { top: c(P.accent2).lerp(c('#0b0b18'), 0.62).getStyle(), bottom: c(P.bg).lerp(c(P.accent), 0.15).multiplyScalar(0.55).getStyle(), bokeh: [P.accent, P.accent2], floor: c(P.bg).lerp(c(P.accent), 0.15).multiplyScalar(0.55).lerp(c(P.accent2), 0.2).getStyle() };
 };
-const hdrFor = (setting?: string) => (setting === 'street' ? 'kloppenheim_02_puresky_1k' : setting === 'room' ? 'brown_photostudio_02_1k' : 'studio_small_09_1k');
+const hdrFor = (setting?: string) => (setting === 'street' || setting === 'park' ? 'kloppenheim_02_puresky_1k' : setting === 'room' ? 'brown_photostudio_02_1k' : 'studio_small_09_1k');
 
 const Env: React.FC<{ setting?: string; showBackground: boolean }> = ({ setting, showBackground }) => {
   const hdr = useLoader(RGBELoader, staticFile(`pbr/hdri/${hdrFor(setting)}.hdr`));
   const scene = useThree((s) => s.scene);
   hdr.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = hdr; (scene as any).environmentIntensity = 0.9;
-  if (showBackground) { scene.background = hdr; (scene as any).backgroundBlurriness = setting === 'street' ? 0.12 : 0.55; (scene as any).backgroundIntensity = 0.85; (scene as any).backgroundRotation = new THREE.Euler(0, setting === 'street' ? 2.2 : 0.9, 0); }
+  if (showBackground) { scene.background = hdr; (scene as any).backgroundBlurriness = setting === 'park' ? 0.04 : setting === 'street' ? 0.12 : 0.55; (scene as any).backgroundIntensity = setting === 'park' ? 0.42 : 0.85; (scene as any).backgroundRotation = new THREE.Euler(0, setting === 'street' || setting === 'park' ? 2.2 : 0.9, 0); }
   return null;
 };
 
@@ -115,18 +116,20 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
 
 export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?: number }> = ({ f, scene, ctx, quality = 1 }) => {
   const W = 1080, H = 1920, rw = Math.round(W * quality), rh = Math.round(H * quality);
-  const setting = scene.setting && ['room', 'street'].includes(scene.setting) ? scene.setting : (scene.template === 'board' ? 'room' : 'studio');
+  const setting = scene.setting && ['room', 'street', 'park'].includes(scene.setting) ? scene.setting : (scene.template === 'board' ? 'room' : 'studio');
   const mood = moodFor(ctx, setting);
+  const park = setting === 'park';
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       <div style={{ width: rw, height: rh, transform: `scale(${1 / quality})`, transformOrigin: '0 0' }}>
         <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0, antialias: false }} camera={{ position: [0, CAM_Y, CAM_Z], fov: 30, near: 1, far: 80 }}>
           <CameraRig />
           <Suspense fallback={<Loading />}>
-            <Env setting={setting} showBackground={false} />
-            <Cyclorama f={f} ctx={ctx} mood={mood} />
-            <fog attach="fog" args={[mood.bottom, 9, 26]} />
-            <Floor mood={mood} setting={setting} />
+            <Env setting={setting} showBackground={park} />
+            {!park && <Cyclorama f={f} ctx={ctx} mood={mood} />}
+            {park && <ParkSet />}
+            <fog attach="fog" args={park ? ['#bcd4e6', 16, 52] : [mood.bottom, 9, 26]} />
+            {!park && <Floor mood={mood} setting={setting} />}
             <hemisphereLight args={['#ffffff', '#555566', 0.45]} />
             <directionalLight position={[-4, 8, 7]} intensity={2.4} color="#fff3e2" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-4} shadow-camera-right={4} shadow-camera-top={4} shadow-camera-bottom={-1} shadow-camera-near={2} shadow-camera-far={24} shadow-bias={-0.0004} />
             <pointLight position={[-3.2, 2.6, -2.5]} intensity={26} color={ctx.palette.accent} distance={14} />
