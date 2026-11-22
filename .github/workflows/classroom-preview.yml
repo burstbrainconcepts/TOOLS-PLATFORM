@@ -1,0 +1,92 @@
+name: Render classroom preview
+
+on:
+  push:
+    branches:
+      - feat/stylized-cinematic-classroom-phase1
+    paths:
+      - ".github/workflows/classroom-preview.yml"
+      - "studio/trackbot-explainer/src/Classroom3D.tsx"
+      - "studio/trackbot-explainer/src/ClassroomPreview.tsx"
+      - "studio/trackbot-explainer/src/Scene3D.tsx"
+      - "studio/trackbot-explainer/src/Human3D.tsx"
+      - "studio/trackbot-explainer/src/Templates.tsx"
+      - "studio/trackbot-explainer/src/Root.tsx"
+      - "studio/trackbot-explainer/public/models/**"
+      - "studio/trackbot-explainer/public/pbr/hdri/**"
+      - "studio/trackbot-explainer/package.json"
+      - "studio/trackbot-explainer/package-lock.json"
+      - "studio/trackbot-explainer/scripts/series/**"
+      - "studio/trackbot-explainer/UGC_FACTORY.md"
+      - "studio/trackbot-explainer/examples/**"
+  pull_request:
+    branches:
+      - ccr-0ffd1b4b-vcvwl5
+    paths:
+      - ".github/workflows/classroom-preview.yml"
+      - "studio/trackbot-explainer/src/Classroom3D.tsx"
+      - "studio/trackbot-explainer/src/ClassroomPreview.tsx"
+      - "studio/trackbot-explainer/src/Scene3D.tsx"
+      - "studio/trackbot-explainer/src/Human3D.tsx"
+      - "studio/trackbot-explainer/src/Templates.tsx"
+      - "studio/trackbot-explainer/src/Root.tsx"
+      - "studio/trackbot-explainer/public/models/**"
+      - "studio/trackbot-explainer/public/pbr/hdri/**"
+      - "studio/trackbot-explainer/package.json"
+      - "studio/trackbot-explainer/package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: classroom-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: studio/trackbot-explainer
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: studio/trackbot-explainer/package-lock.json
+
+      - name: Install system rendering dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Type-check project source
+        run: npx tsc --noEmit
+
+      - name: Test episode and continuity engine
+        run: npm test
+
+      - name: Render full-resolution six-second classroom preview
+        run: npx remotion render src/index.ts ClassroomPreview out/classroom-preview.mp4 --codec h264 --concurrency=2
+
+      - name: Verify rendered video exists and is non-empty
+        run: |
+          test -s out/classroom-preview.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 out/classroom-preview.mp4
+
+      - name: Upload preview video
+        uses: actions/upload-artifact@v4
+        with:
+          name: classroom-preview-${{ github.event.pull_request.head.sha || github.sha }}
+          path: studio/trackbot-explainer/out/classroom-preview.mp4
+          if-no-files-found: error
+          retention-days: 7
