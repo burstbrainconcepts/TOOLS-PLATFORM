@@ -4,7 +4,7 @@ import { FONT, Figure, K, Panel, Street } from './Acting';
 import { Room } from './Scenes2';
 
 // Reusable scene templates for episodes and ads. Characters come from the series bible, so they look identical everywhere.
-export type CharSpec = { name: string; skin: string; hair?: string; hairStyle?: 'puff' | 'short' | 'helmet'; shirt: string; pants?: string; shoe?: string; glasses?: boolean; voice: string };
+export type CharSpec = { name: string; skin: string; hair?: string; hairStyle?: 'puff' | 'short' | 'helmet'; shirt: string; pants?: string; shoe?: string; glasses?: boolean; voice: string; body?: 'm' | 'f' };
 export type Palette = { accent: string; accent2: string; bg: string; ink: string };
 export type TplScene = {
   template: string; text: string; who?: string[]; speaker?: string; setting?: string; emotion?: string;

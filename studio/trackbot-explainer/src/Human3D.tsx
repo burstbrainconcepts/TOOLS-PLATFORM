@@ -5,14 +5,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { staticFile } from 'remotion';
 
-// A 3D person built in Blender (models/build_human.py): smooth skinned body with hands, sculpted head, separate face parts.
-// Colours come from the series bible (materials are recoloured by name) and every pose is driven by numbers, so the same
-// acting values drive 2D and 3D. Faces +Z, feet at y = 0, about 1.8 m tall.
-export type Look3D = { skin: string; hair?: string; hairStyle?: 'puff' | 'short' | 'helmet'; shirt: string; pants?: string; shoe?: string; glasses?: boolean };
+// A 3D person built from the MPFB body (models/build_human_mpfb.py): detailed body and face, 53-bone rig with fingers,
+// facial morph targets, skinned clothes. Colours come from the series bible (materials are recoloured by name) and every
+// pose is driven by numbers, so the same acting values drive the 2D and the 3D cast. Faces +Z, feet at y = 0, about 1.66 m.
+export type Look3D = { skin: string; hair?: string; hairStyle?: 'puff' | 'short' | 'helmet' | 'bald'; shirt: string; pants?: string; shoe?: string; glasses?: boolean; body?: 'm' | 'f' };
 export type Pose3D = {
   head?: number;      // tilt, degrees (sideways)
   nod?: number;       // pitch, degrees (positive = chin down)
-  look?: number;      // -1..1 head/eye turn (positive = toward +x)
+  look?: number;      // -1..1 head turn (positive = toward +x)
   lean?: number;      // torso sideways lean, degrees
   armR?: number; armL?: number;      // degrees away from the body (0 = hanging); R = the +x side
   elbowR?: number; elbowL?: number;  // forearm bend, degrees
@@ -29,16 +29,20 @@ export type Pose3D = {
 const D = Math.PI / 180;
 const AX = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
 const q = (axis: 'x' | 'y' | 'z', deg: number) => new THREE.Quaternion().setFromAxisAngle(AX[axis], deg * D);
+const mul = (...qs: THREE.Quaternion[]) => qs.reduce((a, b) => a.multiply(b), new THREE.Quaternion());
 
-const BONES = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm_p', 'forearm_p', 'hand_p', 'upperarm_n', 'forearm_n', 'hand_n', 'thigh_p', 'shin_p', 'foot_p', 'thigh_n', 'shin_n', 'foot_n'] as const;
-const PARENT: Record<string, string | null> = { hips: null, spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', upperarm_p: 'chest', forearm_p: 'upperarm_p', hand_p: 'forearm_p', upperarm_n: 'chest', forearm_n: 'upperarm_n', hand_n: 'forearm_n', thigh_p: 'hips', shin_p: 'thigh_p', foot_p: 'shin_p', thigh_n: 'hips', shin_n: 'thigh_n', foot_n: 'shin_n' };
+const FINGERS = ['index', 'middle', 'ring', 'pinky'];
+const CURL: Record<string, number[]> = { index: [10, 22, 18], middle: [12, 26, 20], ring: [14, 28, 22], pinky: [16, 30, 24] };   // relaxed hand, degrees per joint
+const FACE_PARTS = ['eye_n', 'eye_p', 'pupil_n', 'pupil_p', 'brow_n', 'brow_p', 'mouth_in', 'glass_n', 'glass_p', 'glass_bridge', 'hair_short', 'hair_helmet', 'hair_puff'];
+
 type Rig = {
-  root: THREE.Object3D; bones: Record<string, THREE.Object3D>;
+  root: THREE.Object3D; order: string[]; bones: Record<string, THREE.Bone>; parentOf: Record<string, string | null>;
   restLocal: Record<string, THREE.Quaternion>; restWorld: Record<string, THREE.Quaternion>; restPos: THREE.Vector3;
-  nodes: Record<string, THREE.Object3D>; base: Record<string, THREE.Vector3>;
+  suf: { p: string; n: string };               // which bone suffix (_l / _r) lies on the +x side
+  armDir: Record<string, THREE.Vector3>; legDir: Record<string, THREE.Vector3>;   // rest directions (world), measured from the bones
+  face: Record<string, THREE.Object3D>; brow0: Record<string, THREE.Vector3>;
+  morph?: { mesh: THREE.Mesh; idx: Record<string, number> };
 };
-
-const HEAD_PARTS = ['head_mesh', 'ear_n', 'ear_p', 'eye_n', 'eye_p', 'pupil_n', 'pupil_p', 'brow_n', 'brow_p', 'mouth_open', 'mouth_smile', 'mouth_flat', 'glass_n', 'glass_p', 'glass_bridge', 'hair_short', 'hair_helmet', 'hair_puff', 'lid_n', 'lid_p'];
 
 const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
   const root = cloneSkinned(scene);
@@ -46,6 +50,7 @@ const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
   root.traverse((o) => { if (o.name) byName[o.name] = o; });
   const col = (hex?: string, fallback = '#888888') => new THREE.Color(hex ?? fallback);
   const colors: Record<string, THREE.Color> = { skin: col(look.skin), shirt: col(look.shirt), pants: col(look.pants, '#2A2F45'), shoe: col(look.shoe, '#FFFFFF'), hair: col(look.hair, '#14100D') };
+  let morph: Rig['morph'];
   root.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;
@@ -58,46 +63,66 @@ const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
       return c;
     };
     m.material = Array.isArray(m.material) ? m.material.map(rep) : rep(m.material);
+    if (m.morphTargetDictionary && m.morphTargetInfluences) morph = { mesh: m, idx: m.morphTargetDictionary };
   });
   root.updateMatrixWorld(true);
-  const bones: Record<string, THREE.Object3D> = {};
-  for (const b of BONES) bones[b] = byName[b];
-  // parts that are not skinned are attached to the bone that carries them (their world transform is preserved)
-  for (const n of HEAD_PARTS) if (byName[n]) bones.head.attach(byName[n]);
-  for (const s of ['p', 'n']) for (const n of [`shoe_${s}`, `sole_${s}`]) if (byName[n]) bones[`foot_${s}`].attach(byName[n]);
+  // bones, top-down
+  const bones: Record<string, THREE.Bone> = {}, parentOf: Record<string, string | null> = {}, order: string[] = [];
+  const walk = (o: THREE.Object3D, parent: string | null) => {
+    if ((o as THREE.Bone).isBone) { bones[o.name] = o as THREE.Bone; parentOf[o.name] = parent; order.push(o.name); parent = o.name; }
+    for (const c of o.children) walk(c, parent);
+  };
+  walk(root, null);
+  const wp = new THREE.Vector3(); bones.upperarm_l.getWorldPosition(wp);
+  const suf = wp.x > 0 ? { p: '_l', n: '_r' } : { p: '_r', n: '_l' };
+  // unskinned parts ride on the bone that carries them (world transform preserved)
+  for (const n of FACE_PARTS) if (byName[n]) bones.head.attach(byName[n]);
+  for (const s of ['p', 'n'] as const) for (const n of [`shoe_${s}`, `sole_${s}`]) if (byName[n]) bones[`foot${suf[s]}`].attach(byName[n]);
   root.updateMatrixWorld(true);
   const restLocal: Record<string, THREE.Quaternion> = {}, restWorld: Record<string, THREE.Quaternion> = {};
-  for (const b of BONES) { restLocal[b] = bones[b].quaternion.clone(); restWorld[b] = bones[b].getWorldQuaternion(new THREE.Quaternion()); }
-  const nodes: Record<string, THREE.Object3D> = {}, base: Record<string, THREE.Vector3> = {};
-  for (const n of HEAD_PARTS) if (byName[n]) { nodes[n] = byName[n]; base[n] = byName[n].scale.clone(); }
+  for (const b of order) { restLocal[b] = bones[b].quaternion.clone(); restWorld[b] = bones[b].getWorldQuaternion(new THREE.Quaternion()); }
+  const dirOf = (a: string, b: string) => { const pa = bones[a].getWorldPosition(new THREE.Vector3()), pb = bones[b].getWorldPosition(new THREE.Vector3()); return pb.sub(pa).normalize(); };
+  const armDir: Record<string, THREE.Vector3> = {}, legDir: Record<string, THREE.Vector3> = {};
+  for (const s of ['p', 'n'] as const) { armDir[s] = dirOf(`upperarm${suf[s]}`, `lowerarm${suf[s]}`); legDir[s] = dirOf(`thigh${suf[s]}`, `calf${suf[s]}`); }
+  const face: Record<string, THREE.Object3D> = {}, brow0: Record<string, THREE.Vector3> = {};
+  for (const n of FACE_PARTS) if (byName[n]) face[n] = byName[n];
+  for (const n of ['brow_p', 'brow_n']) if (face[n]) brow0[n] = face[n].position.clone();
   const hs = look.hairStyle ?? 'short';
-  for (const n of ['hair_short', 'hair_helmet', 'hair_puff']) if (nodes[n]) nodes[n].visible = n === `hair_${hs}`;
-  for (const n of ['glass_n', 'glass_p', 'glass_bridge']) if (nodes[n]) nodes[n].visible = !!look.glasses;
-  return { root, bones, restLocal, restWorld, restPos: bones.hips.position.clone(), nodes, base };
+  for (const n of ['hair_short', 'hair_helmet', 'hair_puff']) if (face[n]) face[n].visible = n === `hair_${hs}`;
+  for (const n of ['glass_n', 'glass_p', 'glass_bridge']) if (face[n]) face[n].visible = !!look.glasses;
+  return { root, order, bones, parentOf, restLocal, restWorld, restPos: bones.pelvis.position.clone(), suf, armDir, legDir, face, brow0, morph };
 };
 
 const applyPose = (rig: Rig, p: Pose3D) => {
-  // desired WORLD-space rotation change per bone (relative to rest); bones without one inherit their parent's motion
   const n = (a?: number) => a ?? 0;
+  const lean = n(p.lean), step = n(p.step), nod = n(p.nod), look = n(p.look);
+  // desired WORLD-space rotation change per bone relative to rest; a bone without an entry inherits its parent's motion
   const d: Record<string, THREE.Quaternion> = {};
-  const lean = n(p.lean), step = n(p.step);
-  d.hips = q('z', lean * 0.3);
-  d.spine = q('z', lean * 0.5).multiply(q('y', n(p.look) * 4));
-  d.neck = q('x', n(p.nod) * 0.35).multiply(q('y', n(p.look) * 8));
-  d.head = q('z', n(p.head)).multiply(q('y', n(p.look) * 14)).multiply(q('x', n(p.nod) * 0.65));
-  const arms: [string, number, number, number, number][] = [['p', 1, p.armR ?? 8, p.elbowR ?? 8, n(p.reachR)], ['n', -1, p.armL ?? 8, p.elbowL ?? 8, 0]];
+  const torso = q('z', lean * 0.65);                       // lean of the upper body, shared by everything above the waist
+  d.pelvis = q('z', lean * 0.15);
+  d.spine_01 = q('z', lean * 0.3);
+  d.spine_02 = q('z', lean * 0.5).multiply(q('y', look * 3));
+  d.spine_03 = torso.clone().multiply(q('y', look * 5));
+  d.neck_01 = mul(torso, q('x', nod * 0.35), q('y', look * 8));
+  d.head = mul(torso, q('z', n(p.head)), q('y', look * 14), q('x', nod * 0.65));
+  const arms: ['p' | 'n', number, number, number, number][] = [['p', 1, p.armR ?? 8, p.elbowR ?? 8, n(p.reachR)], ['n', -1, p.armL ?? 8, p.elbowL ?? 8, 0]];
   for (const [s, sign, out, el, reach] of arms) {
-    const up = q('z', sign * out).multiply(q('x', -reach));
-    d[`upperarm_${s}`] = up;
-    d[`forearm_${s}`] = up.clone().multiply(q('x', -el * 1.1)).multiply(q('z', sign * el * 0.25));
+    const sf = rig.suf[s];
+    // swing the arm from its rest direction (relaxed A-pose, measured from the bones) to `out` degrees away from vertical
+    const target = new THREE.Vector3(sign * Math.sin(out * D), -Math.cos(out * D), 0);
+    const up = mul(torso, q('x', -reach), new THREE.Quaternion().setFromUnitVectors(rig.armDir[s], target));
+    const fore = mul(q('x', -Math.max(0, el - 10) * 1.1), up);               // extra forearm flexion on top of the natural rest bend
+    d[`upperarm${sf}`] = up; d[`lowerarm${sf}`] = fore; d[`hand${sf}`] = fore;
+    for (const f of FINGERS) { let cum = 0; for (let k = 1; k <= 3; k++) { cum += CURL[f][k - 1]; d[`${f}_0${k}${sf}`] = mul(fore, q('z', -sign * cum)); } }
+    for (let k = 1; k <= 3; k++) d[`thumb_0${k}${sf}`] = mul(fore, q('z', -sign * 6 * k), q('x', sign * 4 * k));
   }
-  d.thigh_p = q('x', step * 3); d.thigh_n = q('x', -step * 3);
-  d.shin_p = q('x', -Math.max(0, step) * 1.2); d.shin_n = q('x', -Math.max(0, -step) * 1.2);
+  for (const s of ['p', 'n'] as const) { const sg = s === 'p' ? 1 : -1; const st = (s === 'p' ? 1 : -1) * step * 3; d[`thigh${rig.suf[s]}`] = mul(q('x', st), new THREE.Quaternion().setFromUnitVectors(rig.legDir[s], new THREE.Vector3(sg * Math.sin(2.5 * D), -Math.cos(2.5 * D), 0))); }
+  d[`calf${rig.suf.p}`] = q('x', -Math.max(0, step) * 1.2); d[`calf${rig.suf.n}`] = q('x', -Math.max(0, -step) * 1.2);
 
   const curW: Record<string, THREE.Quaternion> = {};
-  const rootW = new THREE.Quaternion();
-  for (const b of BONES) {
-    const pw = PARENT[b] ? curW[PARENT[b]!] : rootW;
+  for (const b of rig.order) {
+    const par = rig.parentOf[b];
+    const pw = par ? curW[par] : rig.bones[b].parent!.getWorldQuaternion(new THREE.Quaternion());
     if (d[b]) {
       curW[b] = d[b].clone().multiply(rig.restWorld[b]);
       rig.bones[b].quaternion.copy(pw.clone().invert().multiply(curW[b]));
@@ -106,36 +131,41 @@ const applyPose = (rig: Rig, p: Pose3D) => {
       curW[b] = pw.clone().multiply(rig.restLocal[b]);
     }
   }
-  rig.bones.head.scale.setScalar(1.2);   // stylised: slightly large head reads better on a phone
-  rig.bones.hips.position.set(rig.restPos.x + step * 0.018, rig.restPos.y, rig.restPos.z);
-  rig.bones.chest.scale.set(1 + n(p.breath), 1 + n(p.breath) * 1.4, 1);
+  rig.bones.pelvis.position.set(rig.restPos.x + step * 0.016, rig.restPos.y, rig.restPos.z);
+  rig.bones.spine_03.scale.set(1 + n(p.breath), 1 + n(p.breath) * 1.2, 1);
+  rig.bones.head.scale.setScalar(1.1);       // slightly large head reads better on a phone
 
-  // face: blink by squashing the eyes, brows tilt with emotion, mouth switches between open / smile / flat
-  const N = rig.nodes, B = rig.base, ink = p.blink ?? 1;
-  const talk = n(p.talk), w = p.mouthW ?? 1;
+  // face: morph targets for blink / brows / mouth, brow meshes follow the brow morph
+  const talk = n(p.talk), w = p.mouthW ?? 1, ink = p.blink ?? 1;
   const happy = p.emotion === 'happy', worried = p.emotion === 'worried', surprised = p.emotion === 'surprised';
-  for (const s of ['n', 'p']) {
-    const sgn = s === 'p' ? 1 : -1;
-    const eye = N[`eye_${s}`], pup = N[`pupil_${s}`], brow = N[`brow_${s}`];
-    if (eye) eye.scale.set(B[`eye_${s}`].x, B[`eye_${s}`].y, B[`eye_${s}`].z * Math.max(0.12, ink));
-    if (pup) { pup.scale.set(B[`pupil_${s}`].x, B[`pupil_${s}`].y, B[`pupil_${s}`].z * Math.max(0.12, ink)); pup.visible = ink > 0.4; }
-    if (brow) { brow.rotation.z = sgn * (worried ? 0.3 : -0.06); brow.position.y = (brow.userData.y0 ??= brow.position.y) + n(p.brow) * 0.008 + (surprised ? 0.007 : 0); }
-    if (N[`lid_${s}`]) N[`lid_${s}`].visible = false;
+  const brow = n(p.brow) + (surprised ? 0.8 : 0);
+  if (rig.morph) {
+    const { mesh, idx } = rig.morph; const inf = mesh.morphTargetInfluences!;
+    const set = (k: string, v: number) => { if (idx[k] !== undefined) inf[idx[k]] = Math.max(0, Math.min(1, v)); };
+    for (const s of ['p', 'n']) {
+      set(`blink_${s}`, 1 - ink);
+      set(`browUp_${s}`, Math.max(0, brow)); set(`browDown_${s}`, Math.max(0, -brow) + (worried ? 0.1 : 0)); set(`browInner_${s}`, worried ? 0.8 : 0);
+    }
+    set('mouthOpen', surprised ? 0.7 : talk * 0.95);
+    set('smile', (happy ? 0.75 : 0) + Math.max(0, (w - 1) * 0.35) * (talk > 0.1 ? 1 : 0));
+    set('frown', worried ? 0.7 : 0);
+    set('purse', talk > 0.1 ? Math.max(0, (1 - w) * 0.6) : 0);
   }
-  const mo = N.mouth_open, sm = N.mouth_smile, fl = N.mouth_flat;
-  const open = talk > 0.1 || surprised;
-  if (mo) { mo.visible = open; mo.scale.set(B.mouth_open.x * (1 - talk * 0.15) * w, B.mouth_open.y * (1 + (surprised ? 1.6 : 0) + talk * 3.6), B.mouth_open.z); }
-  if (sm) { sm.visible = !open && (happy || worried); sm.rotation.z = worried ? Math.PI : 0; }
-  if (fl) fl.visible = !open && !happy && !worried;
+  if (rig.face.mouth_in) rig.face.mouth_in.visible = talk > 0.1 || surprised;
+  const headQ = curW.head.clone().invert();
+  for (const s of ['p', 'n']) {
+    const b = rig.face[`brow_${s}`], b0 = rig.brow0[`brow_${s}`];
+    if (b && b0) b.position.copy(b0).add(new THREE.Vector3(0, brow * 0.007, 0).applyQuaternion(headQ).multiplyScalar(1 / 1.1));
+  }
 };
 
 export const Person3D: React.FC<{ look: Look3D; pose?: Pose3D; position?: [number, number, number]; scale?: number; rotY?: number }> = ({ look, pose = {}, position = [0, 0, 0], scale = 1, rotY = 0 }) => {
-  const gltf = useLoader(GLTFLoader, staticFile('models/human.glb'));
+  const gltf = useLoader(GLTFLoader, staticFile(`models/human_${look.body ?? 'm'}.glb`));
   const key = JSON.stringify(look);
   const rig = useMemo(() => buildRig(gltf.scene, look), [gltf, key]);
   const poseRef = useRef(pose); poseRef.current = pose;
   const invalidate = useThree((s) => s.invalidate);
   useLayoutEffect(() => { applyPose(rig, pose); rig.root.updateMatrixWorld(true); invalidate(); });
   useFrame(() => { applyPose(rig, poseRef.current); });
-  return <group position={position} scale={scale} rotation={[0, rotY, 0]}><primitive object={rig.root} /></group>;
+  return <group position={position} scale={scale * 1.08} rotation={[0, rotY, 0]}><primitive object={rig.root} /></group>;
 };

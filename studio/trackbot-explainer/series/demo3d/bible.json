@@ -19,7 +19,8 @@
       "shirt": "#2B6CFF",
       "pants": "#2A2F45",
       "shoe": "#FF5A36",
-      "voice": "en_US-lessac-medium"
+      "voice": "en_US-lessac-medium",
+      "body": "f"
     },
     "mel": {
       "name": "Mel",
@@ -30,7 +31,8 @@
       "pants": "#2A2F45",
       "shoe": "#FBF7EF",
       "glasses": true,
-      "voice": "en_US-ryan-high"
+      "voice": "en_US-ryan-high",
+      "body": "m"
     }
   },
   "rules": {

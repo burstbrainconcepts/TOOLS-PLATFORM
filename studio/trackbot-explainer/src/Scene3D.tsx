@@ -103,7 +103,7 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
         const emotion = talking ? (scene.emotion ?? 'neutral') : 'happy';
         const scl = (s * (multi ? 0.92 : 1)) / 1.55;
         return (
-          <Person3D key={id} look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses }}
+          <Person3D key={id} look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses, body: c.body }}
             position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={(pointing ? -0.15 : towards * (talking ? 0.1 : 0.32))}
             pose={{ head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: pointing ? 6 : 10 + pf.elbow, elbowL: 10,
               talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }} />

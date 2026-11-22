@@ -40,3 +40,17 @@ It is a 2D vector cast with templates: consistent and cheap, not photoreal peopl
 ## Requirements
 
 Node deps as for the rest of the studio, Piper voices in `/home/user/voices` (`VOICES_DIR`), `CHROME_PATH` for Remotion, and a Python with `opencv-python-headless` + `Pillow` for ad mode (`ANALYZE_PY`, default `/home/user/cpu-test/venv/bin/python`).
+
+## 3D mode (set `"style": "3d"` in a bible; see `series/demo3d/`)
+
+The cast is rendered as real 3D people (three.js, lit scene, soft shadows, blurred bokeh backdrop, reflective floor); the same
+templates draw titles, cards and captions on top. Each character picks a body with `"body": "m"` or `"f"`.
+
+- The bodies come from **MPFB** (MakeHuman plugin for Blender: code GPL-3, bundled assets CC0): detailed body and face, 53-bone rig
+  with fingers, facial morph targets (blink, brows, mouth open, smile, frown). `models/setup_mpfb.sh` fetches and patches it for
+  Blender 4.0; `models/build_human_mpfb.py` builds `public/models/human_m.glb` / `human_f.glb` (clothes are cut from the body surface,
+  eyes, brows, hair styles, glasses and shoes are added). The built GLBs are committed, so Blender is only needed to rebuild them.
+- Acting is driven by numbers (the same values as the 2D cast): nods and hand gestures on speech onsets, blinking, lip-sync from the
+  voice loudness, the listener turns toward the speaker, breathing and weight shifts.
+- Rendering is slow on CPU: about 4 s per 1080p frame, so a 30 s episode takes roughly 1.5 hours. Use `"quality3d": 0.75` to trade size for speed.
+- Limits: skin is a flat colour (no texture), clothes are simple shells (no wrinkles, no kit details), hair is basic shapes.
