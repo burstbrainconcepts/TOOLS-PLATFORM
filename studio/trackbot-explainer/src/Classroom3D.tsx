@@ -81,12 +81,12 @@ export const ClassroomSet: React.FC = () => (
       <Box position={[1.25, 0.79, 0.18]} size={[0.42, 0.035, 0.025]} material={paper} />
     </group>
     {/* Foreground desks and chairs */}
-    <Desk x={-2.25} z={-0.2} scale={0.95} />
-    <Desk x={2.25} z={-0.45} scale={0.95} />
-    <Chair x={-2.25} z={0.8} />
-    <Chair x={2.25} z={0.55} />
-    <Desk x={-4.25} z={-2.0} scale={0.72} />
-    <Chair x={-4.25} z={-1.0} />
+    <Desk x={-0.47} z={0.78} scale={0.68} />
+    <Desk x={0.39} z={0.78} scale={0.68} />
+    <Desk x={1.24} z={0.78} scale={0.68} />
+    <Chair x={-0.47} z={-0.35} />
+    <Chair x={0.39} z={-0.35} />
+    <Chair x={1.24} z={-0.35} />
     {/* Warm pendant lights */}
     {[ -2.6, 1.4 ].map((x) => (
       <group key={x} position={[x, 4.75, -2.8]}>
