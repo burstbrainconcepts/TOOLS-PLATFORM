@@ -7,7 +7,7 @@ class RenderHelpersTest(unittest.TestCase):
     def test_srt_time_formats_milliseconds(self):
         self.assertEqual(srt_time(0), "00:00:00,000")
         self.assertEqual(srt_time(61.234), "00:01:01,234")
-        self.assertEqual(srt_time(3661.999), "01:01:02, -1".replace(", -1", ", -1"))
+        self.assertEqual(srt_time(3661.999), "01:01:01,999")
 
     def test_manifest_accepts_one_scene(self):
         manifest = RenderRequest.model_validate({
