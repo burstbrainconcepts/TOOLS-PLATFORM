@@ -1,33 +1,40 @@
 # bb-tools-platform
 
-One repo, three Railway services, one Postgres. See [CLAUDE.md](CLAUDE.md) for the rules.
+Engineering tools monorepo for Burst Brain Concepts. It contains isolated service directories and a separate automation toolkit of upstream projects. See CLAUDE.md for architecture and repository rules.
 
-The separate [`automation/`](automation/README.md) folder contains Git submodules for workflow orchestration, GitHub access, video rendering, and social content. They are source checkouts only; see its README for the staged integration plan. They are not deployed by the Railway service setup below.
+## Services
 
-## 1. Push to GitHub
+| Service | Purpose |
+|---|---|
+| spec-kit | Spec-driven development support |
+| artemis | Android automation/testing support |
+| xtool | iOS build-toolchain support |
+| video-factory | CPU-first FFmpeg rendering API and asynchronous worker |
+
+The automation folder includes n8n, GitHub MCP Server, Remotion and OpenPost as upstream submodules. They remain separate tools; checking out a submodule does not integrate or deploy it.
+
+## Video factory quick start
+
+The video factory is independently runnable with Docker Compose. It requires Docker Engine and Compose.
+
+```bash
+cd services/video-factory
+cp .env.example .env
+# Replace VIDEO_FACTORY_API_KEY in .env with a long random secret
+docker compose up --build -d
+docker compose logs -f api worker
 ```
-gh repo create bb-tools-platform --private --source . --push
-```
 
-## 2. Railway project (one project, one environment)
-1. New Project → Deploy from GitHub repo → pick `bb-tools-platform`.
-2. Add **Postgres** (New → Database → PostgreSQL).
-3. Create three services from the same repo. For each, Settings →
-   - Root Directory: `/services/<name>`
-   - Config as Code path: `/services/<name>/railway.json`
-   - Watch Paths: `/services/<name>/**` (so only that service redeploys on a push)
-4. Variables (per service):
-   - `SERVICE_NAME=<name>`
-   - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
-   - `SPEC_KIT_URL`, `ARTEMIS_URL`, `XTOOL_URL` (the public URLs below)
+Health endpoint: http://localhost:8080/health
 
-## 3. Domains (bbmeet.site)
-In each service: Settings → Networking → Custom Domain, add:
-- speckit.bbmeet.site
-- artemis.bbmeet.site
-- xtool.bbmeet.site
+The service accepts still images/video clips, optional narration and music, then assembles an MP4 with FFmpeg on CPU. Read services/video-factory/README.md for the API workflow and limitations.
 
-Railway shows a CNAME target for each. Add those CNAME records at your DNS host (and the TXT verification record if shown). Redirects between services are then just the URL variables above.
+Important: this is a rendering/assembly engine, not a text-to-video model. AI script, image, voice, full-motion video, character-consistency and lip-sync providers are planned adapters and are not included in this first executable slice. CPU rendering is supported; premium generative motion still depends on suitable inference models/providers.
 
-## 4. Verify
-Open `https://<sub>.bbmeet.site/health` → `ok`, and `/` for the JSON status.
+## Existing Railway services
+
+The existing service shells can be deployed independently from this repository. For each, configure the service root directory and its railway.json path as shown in CLAUDE.md. Do not assume the video factory is deployed merely because its source exists. It needs a Redis service and persistent shared storage mounted at /data; for sustained rendering, a self-hosted Docker host is the recommended starting point.
+
+## Automation toolkit
+
+See automation/README.md for upstream licensing, setup and the staged n8n/Remotion/OpenPost integration plan. Human approval should remain in the loop before public publishing, merges or deployments.

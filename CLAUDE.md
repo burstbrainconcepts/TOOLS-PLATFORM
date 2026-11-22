@@ -1,56 +1,49 @@
 # CLAUDE.md — bb-tools-platform
 
-Monorepo for Burst Brain Concepts engineering tools. It contains three isolated Railway service shells plus a separate `automation/` toolkit source collection. The automation projects are independent upstream repositories, not services and not yet integrated.
+Monorepo for Burst Brain Concepts engineering tools. It contains isolated Railway service directories plus a separate automation toolkit of upstream projects. The automation projects are not automatically deployed or wired together.
 
-## Layout (strict separation)
+## Layout
 
 ```
 bb-tools-platform/
 ├── CLAUDE.md
-├── README.md                 # deploy + DNS runbook
-├── automation/                # independent upstream tools (Git submodules)
-│   ├── README.md              # integration plan and AI-agent setup
-│   ├── n8n/
-│   ├── github-mcp-server/
-│   ├── remotion/
-│   └── openpost/
+├── README.md
+├── automation/                # upstream n8n, GitHub MCP, Remotion and OpenPost
 └── services/
-    ├── spec-kit/             # Spec-driven development (github/spec-kit)
-    ├── artemis/              # Android automation/testing (google/artemis)
-    └── xtool/                # iOS build toolchain (xtool-org/xtool)
+    ├── spec-kit/
+    ├── artemis/
+    ├── xtool/
+    └── video-factory/         # CPU-first FFmpeg API and asynchronous worker
 ```
-
-Each service folder is self-contained: own `Dockerfile`, `railway.json`, `server.py`, and README notes. Keep the upstream projects in `automation/` separate; do not copy them into or treat them as part of a Railway service.
 
 ## Rules
 
-1. **Keep services isolated.** A change for one service must only touch `services/<that-service>/`. Do not import code or share files between services.
-2. Services talk to each other only through URLs in environment variables (`SPEC_KIT_URL`, `ARTEMIS_URL`, `XTOOL_URL`), never by file path.
-3. All services share ONE Postgres via `DATABASE_URL`. Each service must use its own schema (`spec_kit`, `artemis`, `xtool`) or table prefix. Never touch another service's tables.
-4. No secrets in git. Store credentials in Railway variables or the relevant tool's encrypted credential store; never put them in source files or committed workflow exports.
-5. Audit first: read the service's folder and README before modifying; summarize the plan before editing.
-6. Never run ARTEMIS against real money flows or personal devices; test devices and test accounts only.
-7. Pushing to `main` auto-deploys. Work on a branch and open a PR for anything non-trivial.
-8. **Automation tools are separate upstreams.** Keep each submodule isolated under `automation/`; coordinate them through documented APIs, MCP, or CLI calls. Do not merge their source trees together.
-9. Treat AI-generated repository changes and social posts as drafts. Require human approval before merging, deploying, or publishing.
+1. Keep services isolated. A change for one service should stay in its directory, except for shared root documentation.
+2. Services communicate through documented URLs and APIs, never by reading another service's private files.
+3. No secrets in git. Store credentials in deployment variables or encrypted credential stores.
+4. Audit the service folder and README before modifying a service.
+5. Never run ARTEMIS against real money flows or personal devices; use test devices and accounts.
+6. Work on a branch and open a PR for non-trivial changes.
+7. Keep automation tools as separate upstreams; coordinate through APIs, MCP or CLI interfaces.
+8. Treat AI-generated repository changes and social posts as drafts. Require human approval before merging, deploying or publishing.
+9. The video factory API and worker must share durable storage. Do not use node-local ephemeral files for multi-instance rendering.
+10. FFmpeg assembly is not generative AI. Keep image, voice, video-generation and lip-sync providers as explicit adapters with cost, rights and quality controls.
 
 ## Railway mapping
 
 | Service | Root directory | Config path | Domain |
 |---|---|---|---|
-| spec-kit | `/services/spec-kit` | `/services/spec-kit/railway.json` | speckit.bbmeet.site |
-| artemis | `/services/artemis` | `/services/artemis/railway.json` | artemis.bbmeet.site |
-| xtool | `/services/xtool` | `/services/xtool/railway.json` | xtool.bbmeet.site |
-| Postgres | (Railway plugin) | — | internal only |
+| spec-kit | /services/spec-kit | /services/spec-kit/railway.json | speckit.bbmeet.site |
+| artemis | /services/artemis | /services/artemis/railway.json | artemis.bbmeet.site |
+| xtool | /services/xtool | /services/xtool/railway.json | xtool.bbmeet.site |
+| video-factory | /services/video-factory | /services/video-factory/railway.json | optional: video.bbmeet.site |
+| Postgres | Railway plugin | — | internal only |
 
-Variables:
-- Every service: `SERVICE_NAME`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`
-- Cross links on every service:
-  `SPEC_KIT_URL=https://speckit.bbmeet.site`, `ARTEMIS_URL=https://artemis.bbmeet.site`, `XTOOL_URL=https://xtool.bbmeet.site`
+The video factory also requires Redis and a persistent volume mounted at /data. Its API and worker must mount the same volume. Configure VIDEO_FACTORY_API_KEY as a secret. A single worker is the safe starting point on CPU-only hardware.
 
-## Known hosting limits (be honest about these)
+## Known hosting limits
 
-- **spec-kit** is a CLI that runs inside a coding agent; the hosted service is a docs/status shell, not the workflow itself.
-- **artemis** needs an Android device or emulator reachable over ADB. A Railway container has no USB; it needs a network-ADB device or a cloud emulator.
-- **xtool** needs Apple's `Xcode.xip` (cannot be committed) and a USB-connected iPhone for install. Treat the service as a shell/docs for now; real builds run on WSL2/Linux.
-- `server.py` in each folder is a placeholder that serves `/health` and a JSON status page. Replace it as each tool gets properly wired up.
+- spec-kit is a CLI used inside a coding agent; a hosted status shell is not the workflow itself.
+- artemis needs an Android device or emulator reachable over ADB.
+- xtool needs Apple's Xcode assets and appropriate Apple hardware/tooling for real iOS builds.
+- video-factory currently assembles supplied assets with FFmpeg on CPU. It does not generate original AI images, video clips, voices or lip-sync. Sustained rendering is CPU/RAM intensive; use a persistent self-hosted Docker host for the worker.
