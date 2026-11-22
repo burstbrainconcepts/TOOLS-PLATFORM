@@ -199,9 +199,9 @@ export const Product: React.FC<P> = ({ f, scene, ctx }) => {
       const a = ease(f, 24 + i * 18, 42 + i * 18);
       return (
         <g key={i} opacity={a} transform={`translate(690 ${760 + i * 90}) scale(${0.9 + 0.1 * a})`}>
-          <rect x={-215} y={-38} width={430} height={76} rx={38} fill="#fff" stroke={K.ink} strokeWidth={5} />
-          <Icon name="check" x={-174} y={0} s={0.42} c={ctx.palette.accent2} />
-          <text x={-136} y={12} fontFamily={FONT} fontWeight={800} fontSize={30} fill={K.ink}>{b.length > 24 ? b.slice(0, 23) + '…' : b}</text>
+          <rect x={-235} y={-38} width={470} height={76} rx={38} fill="#fff" stroke={K.ink} strokeWidth={5} />
+          <Icon name="check" x={-194} y={0} s={0.42} c={ctx.palette.accent2} />
+          <text x={-156} y={10} fontFamily={FONT} fontWeight={800} fontSize={b.length > 26 ? 25 : 30} fill={K.ink}>{b.length > 34 ? b.slice(0, 33) + '…' : b}</text>
         </g>
       );
     })}
@@ -213,7 +213,7 @@ export const Outro: React.FC<P> = ({ f, scene, ctx }) => {
   const brand = scene.brand ?? ctx.brand ?? '', cta = scene.cta ?? ctx.cta ?? '';
   return S(<Stage id="t-outro" setting="studio" f={f} ctx={ctx} over={<g transform={`translate(540 390) scale(${s})`}>
       <rect x={-440} y={-250} width={880} height={500} rx={56} fill="#fff" stroke={K.ink} strokeWidth={9} />
-      <Lines x={0} y={-70} t={brand} max={12} size={110} fill={K.ink} />
+      <Lines x={0} y={brand.length > 12 ? -110 : -70} t={brand} max={12} size={brand.length > 12 ? 92 : 110} fill={K.ink} />
       <rect x={-380} y={90} width={760} height={110} rx={55} fill={ctx.palette.accent} stroke={K.ink} strokeWidth={6} />
       <Lines x={0} y={166} t={cta} max={24} size={52} fill="#fff" />
     </g>}>
