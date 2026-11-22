@@ -8,9 +8,12 @@ to bones by name (eyes, brows, hair styles, glasses, shoes); morph targets on th
 import bpy, bmesh, sys, os, math, importlib, gzip
 from mathutils import Vector
 
+import json
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT = argv[0] if argv else 'human.glb'
-SEX = argv[1] if len(argv) > 1 else 'm'
+SPEC = {'sex': 'm', 'skin': None, 'hair': None, 'eyebrows': 'eyebrow001', 'clothes': [], 'glasses': False, 'assets': os.environ.get('MPFB_ASSETS', os.path.expanduser('~/mpfb-assets/root')), 'texture_px': 1024}
+if len(argv) > 1: SPEC.update(json.loads(open(argv[1]).read()) if os.path.exists(argv[1]) else {'sex': argv[1]})
+SEX = SPEC['sex']
 os.makedirs('/tmp/mpfb_ext', exist_ok=True)
 bpy.utils.extension_path_user = lambda pkg, create=False, path='': '/tmp/mpfb_ext'   # shim: Blender 4.2 API used by MPFB
 bpy.ops.preferences.addon_enable(module='mpfb')
@@ -18,6 +21,9 @@ HS = importlib.import_module('mpfb.services.humanservice').HumanService
 TS = importlib.import_module('mpfb.services.targetservice').TargetService
 LS = importlib.import_module('mpfb.services.locationservice').LocationService
 scene = bpy.context.scene
+bpy.context.preferences.addons['mpfb'].preferences.mpfb_second_root = SPEC['assets']
+LS.update_second_root()
+AS = importlib.import_module('mpfb.services.assetservice').AssetService
 for o in list(bpy.data.objects):
     if o.type in ('CAMERA', 'LIGHT') or o.name == 'Cube': bpy.data.objects.remove(o, do_unlink=True)
 
@@ -29,6 +35,8 @@ body = HS.create_human(macro_detail_dict=macro, feet_on_ground=True)
 body.name = 'body'
 for m in list(body.modifiers): body.modifiers.remove(m)           # the helper-hiding mask: helpers are deleted for real below
 TS.bake_targets(body)                                             # fix the body shape, drop the macro shape keys
+if SPEC['skin']:
+    HS.set_character_skin(AS.find_asset_absolute_path(SPEC['skin'] + '.mhmat', asset_subdir='skins'), body, skin_type='GAMEENGINE')
 rig = HS.add_builtin_rig(body, 'game_engine'); rig.name = 'rig'
 bpy.context.view_layer.update()
 
@@ -73,150 +81,62 @@ B = rig.data.bones
 bone = lambda n: (B[n].head_local.copy(), B[n].tail_local.copy())
 print('eye centre', {k: tuple(round(c, 3) for c in v) for k, v in EYE.items()}, 'radius', round(EYE_R, 4))
 
-# ------------------------------------------------------------------------- remove helper geometry for real
+def fetch(sub, name):
+    path = AS.find_asset_absolute_path(name, asset_subdir=sub)
+    if path is None: print('MISSING ASSET', sub, name)
+    return path
+# --------------------------------------------------------------- real assets: eyes, brows, lashes, mouth, hair, clothes
+ADD = [('eyes', 'low-poly.mhclo', 'Eyes'), ('eyebrows', SPEC['eyebrows'] + '.mhclo', 'Eyebrows'), ('eyelashes', 'eyelashes01.mhclo', 'Eyelashes'),
+       ('tongue', 'tongue01.mhclo', 'Tongue'), ('teeth', 'teeth_base.mhclo', 'Teeth')]
+if SPEC['hair']: ADD.append(('hair', SPEC['hair'] + '.mhclo', 'Hair'))
+for c in SPEC['clothes']: ADD.append(('clothes', c + '.mhclo', 'Clothes'))
+added = []
+for sub, fn, kind in ADD:
+    pth = fetch(sub, fn)
+    if pth: added.append(HS.add_mhclo_asset(pth, body, asset_type=kind, subdiv_levels=0, material_type='GAMEENGINE'))
+print('assets added:', [o.name for o in added])
+
+# ------------------------------------------------------------------- helper geometry out (the body keeps its shape keys)
 gi = body.vertex_groups['body'].index
 bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); bpy.context.view_layer.objects.active = body
-bm = bmesh.new(); bm.from_mesh(body.data)
-dl = bm.verts.layers.deform.active
-drop = [v for v in bm.verts if gi not in v[dl] or v[dl][gi] < 0.5]
-bmesh.ops.delete(bm, geom=drop, context='VERTS')
-# shape keys must be rebuilt consistently: do the deletion through the edit-mode operator instead (keeps all keys in sync)
-bm.free()
-bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='DESELECT'); bpy.ops.object.mode_set(mode='OBJECT')
 for v in body.data.vertices:
     gs = {g.group: g.weight for g in v.groups}
     v.select = not (gi in gs and gs[gi] >= 0.5)
 bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.delete(type='VERT'); bpy.ops.object.mode_set(mode='OBJECT')
+for m in list(body.modifiers):
+    if m.type == 'MASK': body.modifiers.remove(m)
 print('body after helper removal:', len(body.data.vertices), 'verts')
 
-def mat(name, color, rough=0.6):
-    h = color.lstrip('#'); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
-    c = [x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c] + [1]
-    m = bpy.data.materials.new(name); m.use_nodes = True
-    b = m.node_tree.nodes['Principled BSDF']; b.inputs['Base Color'].default_value = c; b.inputs['Roughness'].default_value = rough
-    return m
-M = {n: mat(n, c, r) for n, c, r in (('skin', '#8D5524', 0.55), ('shirt', '#2B6CFF', 0.7), ('pants', '#2A2F45', 0.75), ('shoe', '#FFFFFF', 0.45), ('hair', '#14100D', 0.85),
-                                     ('eye_white', '#F4F4F2', 0.25), ('eye_dark', '#1B1B1F', 0.2), ('mouth', '#2A0C12', 0.5), ('trim', '#FFFFFF', 0.6))}
-body.data.materials.clear(); body.data.materials.append(M['skin'])
-for p in body.data.polygons: p.material_index = 0
-for p in body.data.polygons: p.use_smooth = True
-
-# ------------------------------------------------------------- clothing shells cut from the body surface
-def shell(name, keep, offset, matname, thick=0.004, snaps=()):
-    o = body.copy(); o.data = body.data.copy(); o.name = name; scene.collection.objects.link(o)
-    bpy.context.view_layer.objects.active = o
-    if o.data.shape_keys: o.shape_key_clear()
-    bm = bmesh.new(); bm.from_mesh(o.data); bm.faces.ensure_lookup_table()
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if not keep(f.calc_center_median())], context='FACES_ONLY')
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
-    bm.normal_update()
-    # clean edges: boundary vertices near a hem / collar / waist are snapped onto a horizontal plane
-    bnd = {v for e in bm.edges if e.is_boundary for v in e.verts}
-    for v in bnd:
-        for z0, test in snaps:
-            if test(v.co): v.co.z = z0; break
-    for v in bm.verts: v.co += v.normal * offset
-    bm.to_mesh(o.data); bm.free()
-    o.data.materials.clear(); o.data.materials.append(M[matname])
-    for p in o.data.polygons: p.use_smooth = True
-    sol = o.modifiers.new('solid', 'SOLIDIFY'); sol.thickness = thick; sol.offset = 1
-    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
-    # the armature modifier must stay last: apply solidify only
-    for m in list(o.modifiers):
-        if m.type == 'SOLIDIFY': bpy.ops.object.modifier_apply(modifier=m.name)
-    return o
-(uh, ut), (fh, ft), (ph, _), (s1h, _), (nh, _), (cph, _), (hh, ht) = bone('upperarm_l'), bone('lowerarm_l'), bone('pelvis'), bone('spine_01'), bone('neck_01'), bone('clavicle_l'), bone('head')
-sx, ex, zarm = abs(uh.x), abs(ft.x if abs(ft.x) > abs(fh.x) else fh.x), uh.z
-hem, neck_z, waist = ph.z - 0.07, nh.z - 0.015, s1h.z
-(ankle, _), (ball, _) = bone('foot_l'), bone('ball_l')
-def near_sleeve(c, reach=0.82, rad=0.095):   # short sleeve: within `rad` of the upper-arm axis (shoulder -> elbow), up to `reach` of its length
-    A, Bv = Vector((abs(uh.x), uh.y, uh.z)), Vector((abs(ut.x), ut.y, ut.z)); P = Vector((abs(c.x), c.y, c.z))
-    t = (P - A).dot(Bv - A) / (Bv - A).length_squared
-    return -0.1 <= t <= reach and (P - (A + (Bv - A) * max(0.0, t))).length < rad
-def shirt_keep(c): return (hem <= c.z <= neck_z and (abs(c.x) <= sx + 0.015 or (c.z < 1.20 and abs(c.x) <= 0.255))) or (abs(c.x) > sx + 0.015 and c.z < neck_z + 0.04 and near_sleeve(c))
-def pants_keep(c): return ankle.z + 0.07 <= c.z <= hem + 0.04 and abs(c.x) < 0.3      # the waistband hides under the shirt hem
-shirt = shell('shirt', shirt_keep, 0.011, 'shirt', 0.005, snaps=[(hem, lambda c: c.z < hem + 0.06 and abs(c.x) <= sx + 0.02), (neck_z, lambda c: c.z > neck_z - 0.05 and abs(c.x) <= sx + 0.02)])
-pants = shell('pants', pants_keep, 0.010, 'pants', 0.005, snaps=[(hem + 0.04, lambda c: c.z > hem - 0.02), (ankle.z + 0.07, lambda c: c.z < ankle.z + 0.13)])
-print('shirt', len(shirt.data.polygons), 'faces; pants', len(pants.data.polygons))
-
-# ------------------------------------------------------------------------------ face parts and accessories
-bvh_obj = body
-def surface_point(origin, direction=Vector((0, 1, 0)), back=0.0):
-    ok, loc, nor, idx = bvh_obj.ray_cast(origin, direction, distance=1.0)
+# ------------------------------------------------------------------------------ glasses (optional, shown by the renderer)
+def dark():
+    m = bpy.data.materials.get('glass_dark') or bpy.data.materials.new('glass_dark'); m.use_nodes = True
+    m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.01, 0.01, 0.012, 1); return m
+def surface_point(origin, direction=Vector((0, 1, 0))):
+    ok, loc, nor, idx = body.ray_cast(origin, direction, distance=1.0)
     return (loc, nor) if ok else (origin + direction * 0.1, Vector((0, -1, 0)))
-def uv_sphere(name, loc, scale, matname, seg=24, rings=14):
-    bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=seg, v_segments=rings, radius=1.0)
-    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
-    o = bpy.data.objects.new(name, me); scene.collection.objects.link(o); o.location = loc; o.scale = scale
-    o.data.materials.append(M[matname])
-    for p in me.polygons: p.use_smooth = True
-    return o
-FRONT = Vector((0, -1, 0))          # the face looks toward -Y in Blender (= +Z in glTF)
 for s, c in EYE.items():
-    uv_sphere(f'eye_{s}', c, (EYE_R,) * 3, 'eye_white', 24, 16)
-    uv_sphere(f'pupil_{s}', c + FRONT * (EYE_R * 0.74), (EYE_R * 0.52, EYE_R * 0.30, EYE_R * 0.52), 'eye_dark', 16, 10)
-    loc, nor = surface_point(Vector((c.x, c.y - 0.25, c.z + EYE_R * 2.1)), Vector((0, 1, 0)))
-    b = uv_sphere(f'brow_{s}', loc + nor * 0.0015, (EYE_R * 1.55, EYE_R * 0.28, EYE_R * 0.30), 'hair', 12, 8)
-    hit, hn = surface_point(Vector((c.x, c.y - 0.25, c.z)), Vector((0, 1, 0)))
-    ring_c = Vector((c.x, min(hit.y, c.y - EYE_R * 0.9) - 0.006, c.z))          # lenses sit just in front of the eye / lid
+    hit, hn = surface_point(Vector((c.x, c.y - 0.25, c.z)))
+    ring_c = Vector((c.x, min(hit.y, c.y - EYE_R * 0.9) - 0.006, c.z))
     bpy.ops.mesh.primitive_torus_add(major_radius=EYE_R * 1.5, minor_radius=EYE_R * 0.14, major_segments=32, minor_segments=8, location=ring_c, rotation=(math.radians(90), 0, 0))
-    g = bpy.context.active_object; g.name = f'glass_{s}'; g.data.materials.append(M['eye_dark'])
-    sgn = 1 if s == 'p' else -1                                                  # temple arm: lens edge -> toward the ear
+    g = bpy.context.active_object; g.name = f'glass_{s}'; g.data.materials.append(dark())
+    sgn = 1 if s == 'p' else -1
     a_, b_ = Vector((ring_c.x + sgn * EYE_R * 1.5, ring_c.y, ring_c.z)), Vector((sgn * 0.083, ring_c.y + 0.10, ring_c.z - 0.005))
     bpy.ops.mesh.primitive_cube_add(size=1, location=(a_ + b_) / 2); t = bpy.context.active_object; t.name = f'glass_temple_{s}'
-    t.scale = (0.003, (b_ - a_).length, 0.003); t.rotation_euler = (0, 0, math.atan2(-(b_.x - a_.x), (b_.y - a_.y))); t.data.materials.append(M['eye_dark'])
+    t.scale = (0.003, (b_ - a_).length, 0.003); t.rotation_euler = (0, 0, math.atan2(-(b_.x - a_.x), (b_.y - a_.y))); t.data.materials.append(dark())
 mid = (EYE['p'] + EYE['n']) / 2
-nb, _ = surface_point(Vector((0, mid.y - 0.25, mid.z)), Vector((0, 1, 0)))
-bpy.ops.mesh.primitive_cube_add(size=1, location=Vector((0, nb.y - 0.004, mid.z))); gb = bpy.context.active_object; gb.name = 'glass_bridge'; gb.scale = (EYE_R * 1.3, 0.004, 0.004); gb.data.materials.append(M['eye_dark'])
-# dark mouth interior: sits just behind the closed lips, only visible when the mouth-open morph parts them
-mp, mn = surface_point(Vector((0, mid.y - 0.25, mouth_c.z)), Vector((0, 1, 0)))
-uv_sphere('mouth_in', mp + Vector((0, 0.012, 0)), (0.022, 0.012, 0.014), 'mouth', 16, 10)
-uv_sphere('teeth', mp + Vector((0, 0.004, 0.0055)), (0.0185, 0.0045, 0.0042), 'trim', 16, 8)
+nb, _ = surface_point(Vector((0, mid.y - 0.25, mid.z)))
+bpy.ops.mesh.primitive_cube_add(size=1, location=Vector((0, nb.y - 0.004, mid.z))); gb = bpy.context.active_object; gb.name = 'glass_bridge'; gb.scale = (EYE_R * 1.3, 0.004, 0.004); gb.data.materials.append(dark())
+for o in [o for o in bpy.data.objects if o.name.startswith('glass_')]:
+    o.hide_render = not SPEC['glasses']
+if not SPEC['glasses']:
+    for o in [o for o in bpy.data.objects if o.name.startswith('glass_')]: bpy.data.objects.remove(o, do_unlink=True)
 
-# hair: shells grown from the scalp (a cap, a taller helmet) and a few spheres for the puff style
-def hair_shell(name, offset, lowest, thick):
-    def keep(c):
-        if c.z < lowest: return False
-        if c.z < mid.z + 0.02 and abs(c.x) > 0.075: return False     # leave the ears free
-        if c.y < mid.y + 0.012 and c.z < mid.z + EYE_R * 4.2: return False   # leave the forehead free
-        return c.z > mid.z - 0.02
-    return shell(name, keep, offset, 'hair', thick)
-hs = hair_shell('hair_short', 0.006, mid.z - 0.03, 0.005)
-hh2 = hair_shell('hair_helmet', 0.016, mid.z - 0.05, 0.008)
-for h in (hs, hh2):                                                      # hair is not skinned: the renderer attaches it to the head bone
-    for m in list(h.modifiers): h.modifiers.remove(m)
-    h.parent = None; h.vertex_groups.clear()
-top = Vector((0, mid.y + 0.03, mid.z + 0.075))
-puffs = [uv_sphere(f'puff{i}', top + Vector((x, y, z)), (r, r, r), 'hair', 20, 12) for i, (x, y, z, r) in enumerate([(-0.06, 0, 0.0, 0.05), (0.06, 0, 0.0, 0.05), (0, 0, 0.035, 0.065), (-0.035, -0.04, 0.01, 0.045), (0.035, -0.04, 0.01, 0.045), (0, 0.06, -0.01, 0.06)])]
-bpy.ops.object.select_all(action='DESELECT')
-for p_ in puffs: p_.select_set(True)
-bpy.context.view_layer.objects.active = puffs[0]; bpy.ops.object.join(); bpy.context.active_object.name = 'hair_puff'
-# sneakers, built from the foot bones: sole slab, upper, toe cap, heel collar and laces
-def rounded_box(name, loc, size, matname, bevel=0.012):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=loc); o = bpy.context.active_object; o.name = name; o.scale = size
-    bpy.ops.object.transform_apply(scale=True); bv = o.modifiers.new('b', 'BEVEL'); bv.width = bevel; bv.segments = 3
-    bpy.ops.object.modifier_apply(modifier='b'); o.data.materials.append(M[matname])
-    for p_ in o.data.polygons: p_.use_smooth = True
-    return o
-def join_named(objs, name):
-    bpy.ops.object.select_all(action='DESELECT')
-    for o in objs: o.select_set(True)
-    bpy.context.view_layer.objects.active = objs[0]; bpy.ops.object.join(); bpy.context.active_object.name = name
-for s_, sgn in (('p', 1), ('n', -1)):
-    side = '_l' if (bone('foot_l')[0].x > 0) == (sgn > 0) else '_r'
-    (a, _), (bl, _) = bone('foot' + side), bone('ball' + side)
-    cx, cy = a.x, (a.y + bl.y) / 2 - 0.045
-    parts = [rounded_box('sole', Vector((cx, cy, 0.014)), (0.066, 0.285, 0.028), 'trim', 0.012)]
-    up = uv_sphere('upper', Vector((cx, cy + 0.01, 0.052)), (0.052, 0.128, 0.044), 'shoe', 28, 16); parts.append(up)
-    parts.append(uv_sphere('toe', Vector((cx, cy - 0.095, 0.034)), (0.048, 0.062, 0.030), 'trim', 20, 10))
-    parts.append(uv_sphere('collar', Vector((cx, cy + 0.105, 0.075)), (0.046, 0.04, 0.042), 'shoe', 20, 12))
-    for k in range(3): parts.append(rounded_box('lace', Vector((cx, cy - 0.03 + k * 0.026 - 0.0, 0.092)), (0.04, 0.008, 0.006), 'trim', 0.002))
-    join_named(parts, f'shoe_{s_}')
-    # the shoes are one piece now; keep a tiny placeholder so the renderer's sole_* lookups stay harmless
-    uv_sphere(f'sole_{s_}', Vector((cx, cy, -1.0)), (0.001, 0.001, 0.001), 'trim', 4, 3)
-
-# ----------------------------------------------------------------------------------------------- export
-for o in bpy.data.objects: o.select_set(o.type in ('MESH', 'ARMATURE'))
+# ---------------------------------------------------------------------------- textures: shrink, then export
+mx = SPEC['texture_px']
+for im in bpy.data.images:
+    if im.size[0] > mx or im.size[1] > mx:
+        k = mx / max(im.size); im.scale(max(1, int(im.size[0] * k)), max(1, int(im.size[1] * k)))
+for o in bpy.data.objects: o.select_set(o.type in ('MESH', 'ARMATURE') and not o.hide_get())
 bpy.context.view_layer.objects.active = rig
 os.makedirs(os.path.dirname(os.path.abspath(OUT)), exist_ok=True)
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=False, export_yup=True, export_skins=True, export_animations=False,

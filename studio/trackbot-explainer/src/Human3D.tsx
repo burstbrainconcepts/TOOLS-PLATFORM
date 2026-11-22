@@ -8,7 +8,7 @@ import { staticFile } from 'remotion';
 // A 3D person built from the MPFB body (models/build_human_mpfb.py): detailed body and face, 53-bone rig with fingers,
 // facial morph targets, skinned clothes. Colours come from the series bible (materials are recoloured by name) and every
 // pose is driven by numbers, so the same acting values drive the 2D and the 3D cast. Faces +Z, feet at y = 0, about 1.66 m.
-export type Look3D = { skin: string; hair?: string; hairStyle?: 'puff' | 'short' | 'helmet' | 'bald'; shirt: string; pants?: string; shoe?: string; glasses?: boolean; body?: 'm' | 'f' };
+export type Look3D = { skin: string; hair?: string; hairStyle?: 'puff' | 'short' | 'helmet' | 'bald'; shirt: string; pants?: string; shoe?: string; glasses?: boolean; body?: 'm' | 'f'; model?: string };
 export type Pose3D = {
   head?: number;      // tilt, degrees (sideways)
   nod?: number;       // pitch, degrees (positive = chin down)
@@ -40,7 +40,7 @@ type Rig = {
   restLocal: Record<string, THREE.Quaternion>; restWorld: Record<string, THREE.Quaternion>; restPos: THREE.Vector3;
   suf: { p: string; n: string };               // which bone suffix (_l / _r) lies on the +x side
   armDir: Record<string, THREE.Vector3>; legDir: Record<string, THREE.Vector3>;   // rest directions (world), measured from the bones
-  face: Record<string, THREE.Object3D>; brow0: Record<string, THREE.Vector3>;
+  face: Record<string, THREE.Object3D>; brow0: Record<string, THREE.Vector3>; brows: THREE.Object3D[]; brows0: THREE.Vector3[];
   morph?: { mesh: THREE.Mesh; idx: Record<string, number> };
 };
 
@@ -55,11 +55,17 @@ const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;
     m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
+    // the exporter marks every material as alpha-blended: only hair, brows and lashes really need transparency (as a cutout)
+    const cutout = /afro|bob|braid|long0|ponytail|short0|eyebrow|eyelash/i.test(m.name);
     const rep = (mm: THREE.Material) => {
       const c = (mm as THREE.MeshStandardMaterial).clone();
       const t = colors[mm.name.replace(/\.\d+$/, '')];
       if (t) c.color.copy(t);
       c.metalness = 0;
+      c.transparent = false; c.opacity = 1; c.depthWrite = true; c.alphaTest = cutout ? 0.45 : 0;
+      if (/shirt|polo|top|sweater|camisole|bodice/i.test(m.name)) c.color.copy(colors.shirt);          // the shirt texture is white: tint it with the bible colour
+      if (/pants|jeans|shorts|trousers/i.test(m.name)) { c.polygonOffset = true; c.polygonOffsetFactor = -2; c.polygonOffsetUnits = -2; }   // waistband wins over the shirt hem
+      if (!cutout) c.side = THREE.FrontSide;
       return c;
     };
     m.material = Array.isArray(m.material) ? m.material.map(rep) : rep(m.material);
@@ -87,10 +93,11 @@ const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
   const face: Record<string, THREE.Object3D> = {}, brow0: Record<string, THREE.Vector3> = {};
   for (const n of FACE_PARTS) if (byName[n]) face[n] = byName[n];
   for (const n of ['brow_p', 'brow_n']) if (face[n]) brow0[n] = face[n].position.clone();
+  const brows: THREE.Object3D[] = []; root.traverse((o) => { if ((o as THREE.Mesh).isMesh && /eyebrow/i.test(o.name)) brows.push(o); });
   const hs = look.hairStyle ?? 'short';
   for (const n of ['hair_short', 'hair_helmet', 'hair_puff']) if (face[n]) face[n].visible = n === `hair_${hs}`;
   for (const n of ['glass_n', 'glass_p', 'glass_bridge', 'glass_temple_n', 'glass_temple_p']) if (face[n]) face[n].visible = !!look.glasses;
-  return { root, order, bones, parentOf, restLocal, restWorld, restPos: bones.pelvis.position.clone(), suf, armDir, legDir, face, brow0, morph };
+  return { root, order, bones, parentOf, restLocal, restWorld, restPos: bones.pelvis.position.clone(), suf, armDir, legDir, face, brow0, brows, brows0: brows.map((b) => b.position.clone()), morph };
 };
 
 const applyPose = (rig: Rig, p: Pose3D) => {
@@ -156,6 +163,7 @@ const applyPose = (rig: Rig, p: Pose3D) => {
   const mouthOpen = talk > 0.1 || surprised;
   if (rig.face.mouth_in) rig.face.mouth_in.visible = mouthOpen;
   if (rig.face.teeth) rig.face.teeth.visible = mouthOpen;
+  rig.brows.forEach((b, i) => b.position.copy(rig.brows0[i]).add(new THREE.Vector3(0, brow * 0.006, 0)));
   const headQ = curW.head.clone().invert();
   for (const s of ['p', 'n']) {
     const b = rig.face[`brow_${s}`], b0 = rig.brow0[`brow_${s}`];
@@ -164,7 +172,7 @@ const applyPose = (rig: Rig, p: Pose3D) => {
 };
 
 export const Person3D: React.FC<{ look: Look3D; pose?: Pose3D; position?: [number, number, number]; scale?: number; rotY?: number }> = ({ look, pose = {}, position = [0, 0, 0], scale = 1, rotY = 0 }) => {
-  const gltf = useLoader(GLTFLoader, staticFile(`models/human_${look.body ?? 'm'}.glb`));
+  const gltf = useLoader(GLTFLoader, staticFile(`models/human_${look.model ?? look.body ?? 'm'}.glb`));
   const key = JSON.stringify(look);
   const rig = useMemo(() => buildRig(gltf.scene, look), [gltf, key]);
   const poseRef = useRef(pose); poseRef.current = pose;

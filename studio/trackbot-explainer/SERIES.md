@@ -46,11 +46,15 @@ Node deps as for the rest of the studio, Piper voices in `/home/user/voices` (`V
 The cast is rendered as real 3D people (three.js, lit scene, soft shadows, blurred bokeh backdrop, reflective floor); the same
 templates draw titles, cards and captions on top. Each character picks a body with `"body": "m"` or `"f"`.
 
-- The bodies come from **MPFB** (MakeHuman plugin for Blender: code GPL-3, bundled assets CC0): detailed body and face, 53-bone rig
-  with fingers, facial morph targets (blink, brows, mouth open, smile, frown). `models/setup_mpfb.sh` fetches and patches it for
-  Blender 4.0; `models/build_human_mpfb.py` builds `public/models/human_m.glb` / `human_f.glb` (clothes are cut from the body surface,
-  eyes, brows, hair styles, glasses and shoes are added). The built GLBs are committed, so Blender is only needed to rebuild them.
+- The bodies come from **MPFB** (MakeHuman plugin for Blender: code GPL-3, bundled and downloadable assets CC0): detailed body and face,
+  53-bone rig with fingers, facial morph targets (blink, brows, mouth open, smile, frown), and MPFB's textured skins, hair, eyes, brows,
+  lashes, teeth, tongue, fitted clothes and shoes.
+  Setup: `models/setup_mpfb.sh` (plugin, patched for Blender 4.0) and `models/fetch_mpfb_assets.sh` (asset packs, about 400 MB, never committed).
+  Each character is described by a small file in `models/cast/` (sex, skin, hair, brows, clothes, glasses) and built with
+  `MPFB_ASSETS=<assets>/root BLENDER_USER_SCRIPTS=<mpfb-build>/scripts blender -b -P models/build_human_mpfb.py -- public/models/human_<name>.glb models/cast/<name>.json`.
+  A bible character picks its model with `"model": "<name>"`. The built GLBs are committed (about 9 MB each), so Blender is only needed to rebuild them.
 - Acting is driven by numbers (the same values as the 2D cast): nods and hand gestures on speech onsets, blinking, lip-sync from the
   voice loudness, the listener turns toward the speaker, breathing and weight shifts.
 - Rendering is slow on CPU: about 4 s per 1080p frame, so a 30 s episode takes roughly 1.5 hours. Use `"quality3d": 0.75` to trade size for speed.
-- Limits: skin is a flat colour (no texture), clothes are simple shells (no wrinkles, no kit details), hair is basic shapes.
+- Limits: the shirt can be tinted but trousers and shoes keep their texture colours; teeth and tongue do not move with the jaw; the hair and glasses packs
+  were not downloadable yet (a simple glasses model is used).
