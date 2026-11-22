@@ -41,7 +41,7 @@ const Chair: React.FC<{ x: number; z: number }> = ({ x, z }) => (
 );
 
 const Bookshelf: React.FC = () => (
-  <group position={[-4.1, 0, -4.6]}>
+  <group position={[-2.55, 0, -4.6]}>
     <Box position={[0, 1.55, 0]} size={[1.45, 3.1, 0.38]} material={darkWood} />
     {[0.35, 1.15, 1.95, 2.72].map((y) => <Box key={y} position={[0, y, 0.23]} size={[1.42, 0.075, 0.52]} material={woodLight} />)}
     {Array.from({ length: 4 }, (_, row) => Array.from({ length: 5 }, (_, i) => (
@@ -63,13 +63,12 @@ export const ClassroomSet: React.FC = () => (
   <group>
     {/* Warm classroom walls, floor and skirting */}
     <Box position={[0, 2.55, -6.1]} size={[13.5, 5.1, 0.28]} material={wall} />
-    <Box position={[0, 0.13, -2.7]} size={[24, 0.26, 24]} material={new THREE.MeshStandardMaterial({ color: '#8b725e', roughness: 0.86 })} />
+    <Box position={[0, -0.13, -2.7]} size={[24, 0.26, 24]} material={new THREE.MeshStandardMaterial({ color: '#8b725e', roughness: 0.86 })} />
     <Box position={[0, 0.34, -5.91]} size={[13.5, 0.34, 0.12]} material={trim} />
-    <Window x={2.85} />
-    <Window x={5.05} />
+    <Window x={2.1} />
     <Bookshelf />
     {/* Framed teaching board */}
-    <group position={[0.35, 2.65, -5.83]}>
+    <group position={[-0.1, 2.65, -5.83]} scale={[0.82, 1, 1]}>
       <Box position={[0, 0, 0]} size={[4.8, 2.55, 0.2]} material={trim} />
       <Box position={[0, 0, 0.12]} size={[4.52, 2.28, 0.055]} material={boardMat} />
       <Box position={[0, -1.34, 0.24]} size={[1.45, 0.09, 0.28]} material={metal} />
