@@ -133,10 +133,10 @@ def near_sleeve(c, reach=0.82, rad=0.095):   # short sleeve: within `rad` of the
     A, Bv = Vector((abs(uh.x), uh.y, uh.z)), Vector((abs(ut.x), ut.y, ut.z)); P = Vector((abs(c.x), c.y, c.z))
     t = (P - A).dot(Bv - A) / (Bv - A).length_squared
     return -0.1 <= t <= reach and (P - (A + (Bv - A) * max(0.0, t))).length < rad
-def shirt_keep(c): return (hem <= c.z <= neck_z and abs(c.x) <= sx + 0.015) or (abs(c.x) > sx + 0.015 and c.z < neck_z + 0.04 and near_sleeve(c))
-def pants_keep(c): return ankle.z + 0.07 <= c.z <= waist - 0.04 and abs(c.x) < 0.3 and c.z < hem + 0.2
+def shirt_keep(c): return (hem <= c.z <= neck_z and (abs(c.x) <= sx + 0.015 or (c.z < 1.20 and abs(c.x) <= 0.255))) or (abs(c.x) > sx + 0.015 and c.z < neck_z + 0.04 and near_sleeve(c))
+def pants_keep(c): return ankle.z + 0.07 <= c.z <= hem + 0.04 and abs(c.x) < 0.3      # the waistband hides under the shirt hem
 shirt = shell('shirt', shirt_keep, 0.011, 'shirt', 0.005, snaps=[(hem, lambda c: c.z < hem + 0.06 and abs(c.x) <= sx + 0.02), (neck_z, lambda c: c.z > neck_z - 0.05 and abs(c.x) <= sx + 0.02)])
-pants = shell('pants', pants_keep, 0.010, 'pants', 0.005, snaps=[(waist - 0.04, lambda c: c.z > waist - 0.10), (ankle.z + 0.07, lambda c: c.z < ankle.z + 0.13)])
+pants = shell('pants', pants_keep, 0.010, 'pants', 0.005, snaps=[(hem + 0.04, lambda c: c.z > hem - 0.02), (ankle.z + 0.07, lambda c: c.z < ankle.z + 0.13)])
 print('shirt', len(shirt.data.polygons), 'faces; pants', len(pants.data.polygons))
 
 # ------------------------------------------------------------------------------ face parts and accessories
@@ -157,13 +157,21 @@ for s, c in EYE.items():
     uv_sphere(f'pupil_{s}', c + FRONT * (EYE_R * 0.74), (EYE_R * 0.52, EYE_R * 0.30, EYE_R * 0.52), 'eye_dark', 16, 10)
     loc, nor = surface_point(Vector((c.x, c.y - 0.25, c.z + EYE_R * 2.1)), Vector((0, 1, 0)))
     b = uv_sphere(f'brow_{s}', loc + nor * 0.0015, (EYE_R * 1.55, EYE_R * 0.28, EYE_R * 0.30), 'hair', 12, 8)
-    gl = bpy.ops.mesh.primitive_torus_add(major_radius=EYE_R * 1.5, minor_radius=EYE_R * 0.14, major_segments=32, minor_segments=8, location=c + FRONT * (EYE_R * 1.3), rotation=(math.radians(90), 0, 0))
+    hit, hn = surface_point(Vector((c.x, c.y - 0.25, c.z)), Vector((0, 1, 0)))
+    ring_c = Vector((c.x, min(hit.y, c.y - EYE_R * 0.9) - 0.006, c.z))          # lenses sit just in front of the eye / lid
+    bpy.ops.mesh.primitive_torus_add(major_radius=EYE_R * 1.5, minor_radius=EYE_R * 0.14, major_segments=32, minor_segments=8, location=ring_c, rotation=(math.radians(90), 0, 0))
     g = bpy.context.active_object; g.name = f'glass_{s}'; g.data.materials.append(M['eye_dark'])
+    sgn = 1 if s == 'p' else -1                                                  # temple arm: lens edge -> toward the ear
+    a_, b_ = Vector((ring_c.x + sgn * EYE_R * 1.5, ring_c.y, ring_c.z)), Vector((sgn * 0.083, ring_c.y + 0.10, ring_c.z - 0.005))
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(a_ + b_) / 2); t = bpy.context.active_object; t.name = f'glass_temple_{s}'
+    t.scale = (0.003, (b_ - a_).length, 0.003); t.rotation_euler = (0, 0, math.atan2(-(b_.x - a_.x), (b_.y - a_.y))); t.data.materials.append(M['eye_dark'])
 mid = (EYE['p'] + EYE['n']) / 2
-bpy.ops.mesh.primitive_cube_add(size=1, location=mid + FRONT * (EYE_R * 1.3)); gb = bpy.context.active_object; gb.name = 'glass_bridge'; gb.scale = (EYE_R * 1.2, EYE_R * 0.2, EYE_R * 0.2); gb.data.materials.append(M['eye_dark'])
+nb, _ = surface_point(Vector((0, mid.y - 0.25, mid.z)), Vector((0, 1, 0)))
+bpy.ops.mesh.primitive_cube_add(size=1, location=Vector((0, nb.y - 0.004, mid.z))); gb = bpy.context.active_object; gb.name = 'glass_bridge'; gb.scale = (EYE_R * 1.3, 0.004, 0.004); gb.data.materials.append(M['eye_dark'])
 # dark mouth interior: sits just behind the closed lips, only visible when the mouth-open morph parts them
 mp, mn = surface_point(Vector((0, mid.y - 0.25, mouth_c.z)), Vector((0, 1, 0)))
 uv_sphere('mouth_in', mp + Vector((0, 0.012, 0)), (0.022, 0.012, 0.014), 'mouth', 16, 10)
+uv_sphere('teeth', mp + Vector((0, 0.004, 0.0055)), (0.0185, 0.0045, 0.0042), 'trim', 16, 8)
 
 # hair: shells grown from the scalp (a cap, a taller helmet) and a few spheres for the puff style
 def hair_shell(name, offset, lowest, thick):
@@ -183,13 +191,29 @@ puffs = [uv_sphere(f'puff{i}', top + Vector((x, y, z)), (r, r, r), 'hair', 20, 1
 bpy.ops.object.select_all(action='DESELECT')
 for p_ in puffs: p_.select_set(True)
 bpy.context.view_layer.objects.active = puffs[0]; bpy.ops.object.join(); bpy.context.active_object.name = 'hair_puff'
-# shoes from the foot bones
-for s, sgn in (('p', 1), ('n', -1)):
+# sneakers, built from the foot bones: sole slab, upper, toe cap, heel collar and laces
+def rounded_box(name, loc, size, matname, bevel=0.012):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc); o = bpy.context.active_object; o.name = name; o.scale = size
+    bpy.ops.object.transform_apply(scale=True); bv = o.modifiers.new('b', 'BEVEL'); bv.width = bevel; bv.segments = 3
+    bpy.ops.object.modifier_apply(modifier='b'); o.data.materials.append(M[matname])
+    for p_ in o.data.polygons: p_.use_smooth = True
+    return o
+def join_named(objs, name):
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objs: o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]; bpy.ops.object.join(); bpy.context.active_object.name = name
+for s_, sgn in (('p', 1), ('n', -1)):
     side = '_l' if (bone('foot_l')[0].x > 0) == (sgn > 0) else '_r'
     (a, _), (bl, _) = bone('foot' + side), bone('ball' + side)
-    ctr = Vector((a.x, (a.y + bl.y) / 2 - 0.035, (a.z + bl.z) / 2 + 0.0))
-    uv_sphere(f'shoe_{s}', Vector((a.x, ctr.y, 0.045)), (0.062, 0.145, 0.052), 'shoe', 28, 16)
-    uv_sphere(f'sole_{s}', Vector((a.x, ctr.y, 0.012)), (0.064, 0.150, 0.018), 'trim', 28, 10)
+    cx, cy = a.x, (a.y + bl.y) / 2 - 0.045
+    parts = [rounded_box('sole', Vector((cx, cy, 0.014)), (0.066, 0.285, 0.028), 'trim', 0.012)]
+    up = uv_sphere('upper', Vector((cx, cy + 0.01, 0.052)), (0.052, 0.128, 0.044), 'shoe', 28, 16); parts.append(up)
+    parts.append(uv_sphere('toe', Vector((cx, cy - 0.095, 0.034)), (0.048, 0.062, 0.030), 'trim', 20, 10))
+    parts.append(uv_sphere('collar', Vector((cx, cy + 0.105, 0.075)), (0.046, 0.04, 0.042), 'shoe', 20, 12))
+    for k in range(3): parts.append(rounded_box('lace', Vector((cx, cy - 0.03 + k * 0.026 - 0.0, 0.092)), (0.04, 0.008, 0.006), 'trim', 0.002))
+    join_named(parts, f'shoe_{s_}')
+    # the shoes are one piece now; keep a tiny placeholder so the renderer's sole_* lookups stay harmless
+    uv_sphere(f'sole_{s_}', Vector((cx, cy, -1.0)), (0.001, 0.001, 0.001), 'trim', 4, 3)
 
 # ----------------------------------------------------------------------------------------------- export
 for o in bpy.data.objects: o.select_set(o.type in ('MESH', 'ARMATURE'))

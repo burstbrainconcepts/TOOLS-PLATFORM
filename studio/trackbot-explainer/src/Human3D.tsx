@@ -32,8 +32,8 @@ const q = (axis: 'x' | 'y' | 'z', deg: number) => new THREE.Quaternion().setFrom
 const mul = (...qs: THREE.Quaternion[]) => qs.reduce((a, b) => a.multiply(b), new THREE.Quaternion());
 
 const FINGERS = ['index', 'middle', 'ring', 'pinky'];
-const CURL: Record<string, number[]> = { index: [10, 22, 18], middle: [12, 26, 20], ring: [14, 28, 22], pinky: [16, 30, 24] };   // relaxed hand, degrees per joint
-const FACE_PARTS = ['eye_n', 'eye_p', 'pupil_n', 'pupil_p', 'brow_n', 'brow_p', 'mouth_in', 'glass_n', 'glass_p', 'glass_bridge', 'hair_short', 'hair_helmet', 'hair_puff'];
+const CURL: Record<string, number[]> = { index: [4, 8, 6], middle: [5, 10, 8], ring: [6, 12, 9], pinky: [7, 14, 10] };   // relaxed hand, degrees per joint (added to the rest pose, which is already slightly curved)
+const FACE_PARTS = ['eye_n', 'eye_p', 'pupil_n', 'pupil_p', 'brow_n', 'brow_p', 'mouth_in', 'teeth', 'glass_n', 'glass_p', 'glass_bridge', 'glass_temple_n', 'glass_temple_p', 'hair_short', 'hair_helmet', 'hair_puff'];
 
 type Rig = {
   root: THREE.Object3D; order: string[]; bones: Record<string, THREE.Bone>; parentOf: Record<string, string | null>;
@@ -89,7 +89,7 @@ const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
   for (const n of ['brow_p', 'brow_n']) if (face[n]) brow0[n] = face[n].position.clone();
   const hs = look.hairStyle ?? 'short';
   for (const n of ['hair_short', 'hair_helmet', 'hair_puff']) if (face[n]) face[n].visible = n === `hair_${hs}`;
-  for (const n of ['glass_n', 'glass_p', 'glass_bridge']) if (face[n]) face[n].visible = !!look.glasses;
+  for (const n of ['glass_n', 'glass_p', 'glass_bridge', 'glass_temple_n', 'glass_temple_p']) if (face[n]) face[n].visible = !!look.glasses;
   return { root, order, bones, parentOf, restLocal, restWorld, restPos: bones.pelvis.position.clone(), suf, armDir, legDir, face, brow0, morph };
 };
 
@@ -113,8 +113,10 @@ const applyPose = (rig: Rig, p: Pose3D) => {
     const up = mul(torso, q('x', -reach), new THREE.Quaternion().setFromUnitVectors(rig.armDir[s], target));
     const fore = mul(q('x', -Math.max(0, el - 10) * 1.1), up);               // extra forearm flexion on top of the natural rest bend
     d[`upperarm${sf}`] = up; d[`lowerarm${sf}`] = fore; d[`hand${sf}`] = fore;
-    for (const f of FINGERS) { let cum = 0; for (let k = 1; k <= 3; k++) { cum += CURL[f][k - 1]; d[`${f}_0${k}${sf}`] = mul(fore, q('z', -sign * cum)); } }
-    for (let k = 1; k <= 3; k++) d[`thumb_0${k}${sf}`] = mul(fore, q('z', -sign * 6 * k), q('x', sign * 4 * k));
+    const flat = out > 50 ? 0.25 : 1;                                       // pointing / presenting: the hand stays open and flat
+    for (const f of FINGERS) { let cum = 0; for (let k = 1; k <= 3; k++) { cum += CURL[f][k - 1] * flat; d[`${f}_0${k}${sf}`] = mul(fore, q('z', -sign * cum)); } }
+    for (let k = 1; k <= 3; k++) d[`thumb_0${k}${sf}`] = mul(fore, q('z', -sign * 3 * k * flat), q('x', sign * 2 * k));
+    d[`clavicle${sf}`] = mul(torso, q('z', -sign * 5));                     // sloping shoulders
   }
   for (const s of ['p', 'n'] as const) { const sg = s === 'p' ? 1 : -1; const st = (s === 'p' ? 1 : -1) * step * 3; d[`thigh${rig.suf[s]}`] = mul(q('x', st), new THREE.Quaternion().setFromUnitVectors(rig.legDir[s], new THREE.Vector3(sg * Math.sin(2.5 * D), -Math.cos(2.5 * D), 0))); }
   d[`calf${rig.suf.p}`] = q('x', -Math.max(0, step) * 1.2); d[`calf${rig.suf.n}`] = q('x', -Math.max(0, -step) * 1.2);
@@ -147,11 +149,13 @@ const applyPose = (rig: Rig, p: Pose3D) => {
       set(`browUp_${s}`, Math.max(0, brow)); set(`browDown_${s}`, Math.max(0, -brow) + (worried ? 0.1 : 0)); set(`browInner_${s}`, worried ? 0.8 : 0);
     }
     set('mouthOpen', surprised ? 0.7 : talk * 0.95);
-    set('smile', (happy ? 0.75 : 0) + Math.max(0, (w - 1) * 0.35) * (talk > 0.1 ? 1 : 0));
+    set('smile', (happy ? 0.75 : worried ? 0 : 0.28) + Math.max(0, (w - 1) * 0.35) * (talk > 0.1 ? 1 : 0));   // a friendly resting smile by default
     set('frown', worried ? 0.7 : 0);
     set('purse', talk > 0.1 ? Math.max(0, (1 - w) * 0.6) : 0);
   }
-  if (rig.face.mouth_in) rig.face.mouth_in.visible = talk > 0.1 || surprised;
+  const mouthOpen = talk > 0.1 || surprised;
+  if (rig.face.mouth_in) rig.face.mouth_in.visible = mouthOpen;
+  if (rig.face.teeth) rig.face.teeth.visible = mouthOpen;
   const headQ = curW.head.clone().invert();
   for (const s of ['p', 'n']) {
     const b = rig.face[`brow_${s}`], b0 = rig.brow0[`brow_${s}`];
