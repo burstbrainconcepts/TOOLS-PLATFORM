@@ -4,6 +4,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { lintBible, lintEpisode } from './lib.mjs';
+import { resolveSceneContinuity } from './continuity.mjs';
 import { synthScene } from '../lib/voice.mjs';
 
 const [biblePath, epPath] = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -14,7 +15,8 @@ const bible = JSON.parse(readFileSync(biblePath, 'utf8')), ep = JSON.parse(readF
 
 const be = lintBible(bible);
 const { errors, warnings, seconds } = lintEpisode(bible, ep);
-for (const m of [...be, ...errors]) console.error(`ERROR  ${m}`);
+const continuity = resolveSceneContinuity(bible, ep);
+for (const m of [...be, ...errors, ...continuity.errors]) console.error(`ERROR  ${m}`);
 for (const m of warnings) console.warn(`warn   ${m}`);
 if (be.length || errors.length) process.exit(1);
 console.log(`lint ok: ${ep.scenes.length} scenes, about ${seconds.toFixed(0)}s`);
@@ -23,7 +25,7 @@ import { spawnSync } from 'node:child_process';
 if (!existsSync('public/sfx/bed.wav')) spawnSync('python3', ['scripts/lib/sound.py'], { stdio: 'inherit' });   // procedural sfx + music bed
 const defaultWho = Object.keys(bible.characters)[0];
 const dir = `public/episodes/${ep.id}`; mkdirSync(dir, { recursive: true }); mkdirSync(outDir, { recursive: true });
-const scenes = ep.scenes.map((s, i) => {
+const scenes = continuity.scenes.map((s, i) => {
   const who = s.who?.length ? s.who : [defaultWho];
   const speaker = s.speaker ?? who[0];
   const voice = bible.characters[speaker].voice;
