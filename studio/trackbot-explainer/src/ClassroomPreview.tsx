@@ -5,7 +5,7 @@ import type { Ctx, TplScene } from './Templates';
 
 const ctx: Ctx = {
   style: '3d',
-  quality3d: 0.65,
+  quality3d: 1,
   brand: 'Classroom Preview',
   palette: { accent: '#d77a42', accent2: '#e7b66d', bg: '#eadbc6', ink: '#25232a' },
   chars: {
