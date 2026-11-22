@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame, useLoader, useThree } from '@react-three/fiber';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { staticFile } from 'remotion';
 
-// A procedural 3D person (about 1.75 m tall, feet at y = 0, facing +z). No downloaded model: every part is a smooth primitive,
-// so colours come from the series bible and every pose is driven by numbers (same performance values as the 2D figure).
+// A 3D person built in Blender (models/build_human.py): smooth skinned body with hands, sculpted head, separate face parts.
+// Colours come from the series bible (materials are recoloured by name) and every pose is driven by numbers, so the same
+// acting values drive 2D and 3D. Faces +Z, feet at y = 0, about 1.8 m tall.
 export type Look3D = { skin: string; hair?: string; hairStyle?: 'puff' | 'short' | 'helmet'; shirt: string; pants?: string; shoe?: string; glasses?: boolean };
 export type Pose3D = {
   head?: number;      // tilt, degrees (sideways)
   nod?: number;       // pitch, degrees (positive = chin down)
-  look?: number;      // -1..1 head/eye turn
+  look?: number;      // -1..1 head/eye turn (positive = toward +x)
   lean?: number;      // torso sideways lean, degrees
-  armR?: number; armL?: number;      // degrees away from the body (0 = hanging)
+  armR?: number; armL?: number;      // degrees away from the body (0 = hanging); R = the +x side
   elbowR?: number; elbowL?: number;  // forearm bend, degrees
   reachR?: number;                   // arm raised forward, degrees
   talk?: number;      // mouth openness 0..1
@@ -21,109 +26,116 @@ export type Pose3D = {
   step?: number;      // -1..1 weight shift between feet
 };
 
-const rad = (d: number) => (d * Math.PI) / 180;
-const Mat: React.FC<{ c: string; r?: number; m?: number }> = ({ c, r = 0.62, m = 0 }) => <meshStandardMaterial color={c} roughness={r} metalness={m} />;
-const Cap: React.FC<{ r: number; l: number; c: string; pos?: [number, number, number]; scale?: [number, number, number]; rot?: [number, number, number] }> = ({ r, l, c, pos, scale, rot }) => (
-  <mesh position={pos} scale={scale} rotation={rot} castShadow receiveShadow><capsuleGeometry args={[r, l, 8, 20]} /><Mat c={c} /></mesh>
-);
-const Ball: React.FC<{ r: number; c: string; pos?: [number, number, number]; scale?: [number, number, number]; rough?: number }> = ({ r, c, pos, scale, rough }) => (
-  <mesh position={pos} scale={scale} castShadow><sphereGeometry args={[r, 28, 20]} /><Mat c={c} r={rough} /></mesh>
-);
+const D = Math.PI / 180;
+const AX = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+const q = (axis: 'x' | 'y' | 'z', deg: number) => new THREE.Quaternion().setFromAxisAngle(AX[axis], deg * D);
 
-// tapered limb segment (cylinder) with a rounded joint ball at its top: reads as muscle, not as a sausage
-const Seg: React.FC<{ rt: number; rb: number; l: number; c: string; y?: number; rough?: number }> = ({ rt, rb, l, c, y = 0, rough }) => (
-  <group position={[0, y, 0]}>
-    <mesh position={[0, -l / 2, 0]} castShadow receiveShadow><cylinderGeometry args={[rt, rb, l, 20, 1]} /><Mat c={c} r={rough} /></mesh>
-    <Ball r={rt} c={c} rough={rough} />
-    <Ball r={rb} c={c} pos={[0, -l, 0]} rough={rough} />
-  </group>
-);
-
-const Arm: React.FC<{ side: 1 | -1; out: number; elbow: number; reach: number; look: Look3D }> = ({ side, out, elbow, reach, look }) => (
-  // shoulder joint: z rotation swings the arm away from the body, x rotation raises it forward
-  <group position={[side * 0.215, 1.42, 0]} rotation={[-rad(reach), 0, side * rad(out)]}>
-    <Ball r={0.07} c={look.shirt} scale={[1, 1, 0.9]} />
-    <Seg rt={0.066} rb={0.052} l={0.27} c={look.shirt} />
-    <group position={[0, -0.29, 0]} rotation={[-rad(elbow) * 1.1, 0, side * rad(elbow) * 0.25]}>
-      <Seg rt={0.048} rb={0.038} l={0.25} c={look.skin} />
-      <Ball r={0.047} c={look.skin} pos={[0, -0.28, 0.006]} scale={[0.9, 1.15, 0.65]} />
-    </group>
-  </group>
-);
-
-const Leg: React.FC<{ side: 1 | -1; swing: number; look: Look3D }> = ({ side, swing, look }) => (
-  <group position={[side * 0.095, 0.92, 0]} rotation={[rad(swing), 0, side * rad(1.2)]}>
-    <Seg rt={0.1} rb={0.072} l={0.46} c={look.pants ?? '#2A2F45'} />
-    <group position={[0, -0.46, 0]} rotation={[-rad(Math.max(0, swing) * 0.4), 0, 0]}>
-      <Seg rt={0.072} rb={0.052} l={0.4} c={look.pants ?? '#2A2F45'} />
-      <mesh position={[0, -0.43, 0.06]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 0.78]} castShadow><capsuleGeometry args={[0.058, 0.13, 6, 16]} /><Mat c={look.shoe ?? '#FFFFFF'} r={0.45} /></mesh>
-    </group>
-  </group>
-);
-
-const Face: React.FC<{ look: Look3D; pose: Pose3D }> = ({ look, pose }) => {
-  const talk = pose.talk ?? 0, w = pose.mouthW ?? 1, blink = pose.blink ?? 1, brow = pose.brow ?? 0, lk = pose.look ?? 0;
-  const happy = pose.emotion === 'happy', worried = pose.emotion === 'worried', surprised = pose.emotion === 'surprised';
-  const ink = '#1B1B1F';
-  return (
-    <group position={[lk * 0.012, 0, 0]}>
-      {[-1, 1].map((s) => (
-        <group key={s} position={[s * 0.04, 0.018, 0.094]}>
-          <mesh scale={[1, blink, 0.6]}><sphereGeometry args={[0.02, 16, 12]} /><meshStandardMaterial color="#FFFFFF" roughness={0.3} /></mesh>
-          <mesh position={[lk * 0.008, 0, 0.011 * blink]} scale={[1, blink, 0.5]}><sphereGeometry args={[0.0105, 12, 10]} /><meshStandardMaterial color={ink} roughness={0.2} /></mesh>
-          <mesh position={[s * 0.002, 0.04 + brow * 0.01 + (surprised ? 0.008 : 0), 0.004]} rotation={[0, 0, s * (worried ? -0.28 : 0.05) * -1]}><boxGeometry args={[0.04, 0.0085, 0.008]} /><meshStandardMaterial color={look.hair ?? ink} roughness={0.7} /></mesh>
-        </group>
-      ))}
-      {look.glasses && <group position={[0, 0.018, 0.108]}>{[-1, 1].map((s) => <mesh key={s} position={[s * 0.04, 0, 0]}><torusGeometry args={[0.03, 0.0045, 8, 28]} /><meshStandardMaterial color={ink} roughness={0.4} /></mesh>)}<mesh><boxGeometry args={[0.02, 0.004, 0.004]} /><meshStandardMaterial color={ink} /></mesh></group>}
-      <Ball r={0.017} c={look.skin} pos={[0, -0.012, 0.108]} scale={[1, 0.9, 1]} />
-      <group position={[0, -0.056, 0.098]}>
-        {talk > 0.1 || surprised
-          ? <mesh scale={[(0.024 - talk * 0.004) * w, 0.006 + (surprised ? 0.012 : 0) + talk * 0.022, 0.01]}><sphereGeometry args={[1, 16, 12]} /><meshStandardMaterial color="#4A1620" roughness={0.5} /></mesh>
-          : <mesh rotation={[0, 0, happy ? Math.PI : 0]} position={[0, happy ? 0.012 : 0, 0]} scale={[1, worried ? -1 : 1, 1]}><torusGeometry args={[0.024, 0.0042, 8, 20, Math.PI]} /><meshStandardMaterial color={ink} roughness={0.5} /></mesh>}
-      </group>
-    </group>
-  );
+const BONES = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm_p', 'forearm_p', 'hand_p', 'upperarm_n', 'forearm_n', 'hand_n', 'thigh_p', 'shin_p', 'foot_p', 'thigh_n', 'shin_n', 'foot_n'] as const;
+const PARENT: Record<string, string | null> = { hips: null, spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', upperarm_p: 'chest', forearm_p: 'upperarm_p', hand_p: 'forearm_p', upperarm_n: 'chest', forearm_n: 'upperarm_n', hand_n: 'forearm_n', thigh_p: 'hips', shin_p: 'thigh_p', foot_p: 'shin_p', thigh_n: 'hips', shin_n: 'thigh_n', foot_n: 'shin_n' };
+type Rig = {
+  root: THREE.Object3D; bones: Record<string, THREE.Object3D>;
+  restLocal: Record<string, THREE.Quaternion>; restWorld: Record<string, THREE.Quaternion>; restPos: THREE.Vector3;
+  nodes: Record<string, THREE.Object3D>; base: Record<string, THREE.Vector3>;
 };
 
-const Hair: React.FC<{ look: Look3D }> = ({ look }) => {
-  const c = look.hair ?? '#14100D';
-  if (look.hairStyle === 'puff') {
-    return <group>{[[-0.07, 0.07, 0, 0.06], [0.07, 0.07, 0, 0.06], [0, 0.11, -0.01, 0.075], [-0.04, 0.1, 0.03, 0.055], [0.04, 0.1, 0.03, 0.055], [0, 0.07, -0.07, 0.07]].map(([x, y, z, r], i) => <Ball key={i} r={r} c={c} pos={[x, y, z]} rough={0.9} />)}</group>;
+const HEAD_PARTS = ['head_mesh', 'ear_n', 'ear_p', 'eye_n', 'eye_p', 'pupil_n', 'pupil_p', 'brow_n', 'brow_p', 'mouth_open', 'mouth_smile', 'mouth_flat', 'glass_n', 'glass_p', 'glass_bridge', 'hair_short', 'hair_helmet', 'hair_puff', 'lid_n', 'lid_p'];
+
+const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
+  const root = cloneSkinned(scene);
+  const byName: Record<string, THREE.Object3D> = {};
+  root.traverse((o) => { if (o.name) byName[o.name] = o; });
+  const col = (hex?: string, fallback = '#888888') => new THREE.Color(hex ?? fallback);
+  const colors: Record<string, THREE.Color> = { skin: col(look.skin), shirt: col(look.shirt), pants: col(look.pants, '#2A2F45'), shoe: col(look.shoe, '#FFFFFF'), hair: col(look.hair, '#14100D') };
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
+    const rep = (mm: THREE.Material) => {
+      const c = (mm as THREE.MeshStandardMaterial).clone();
+      const t = colors[mm.name.replace(/\.\d+$/, '')];
+      if (t) c.color.copy(t);
+      c.metalness = 0;
+      return c;
+    };
+    m.material = Array.isArray(m.material) ? m.material.map(rep) : rep(m.material);
+  });
+  root.updateMatrixWorld(true);
+  const bones: Record<string, THREE.Object3D> = {};
+  for (const b of BONES) bones[b] = byName[b];
+  // parts that are not skinned are attached to the bone that carries them (their world transform is preserved)
+  for (const n of HEAD_PARTS) if (byName[n]) bones.head.attach(byName[n]);
+  for (const s of ['p', 'n']) for (const n of [`shoe_${s}`, `sole_${s}`]) if (byName[n]) bones[`foot_${s}`].attach(byName[n]);
+  root.updateMatrixWorld(true);
+  const restLocal: Record<string, THREE.Quaternion> = {}, restWorld: Record<string, THREE.Quaternion> = {};
+  for (const b of BONES) { restLocal[b] = bones[b].quaternion.clone(); restWorld[b] = bones[b].getWorldQuaternion(new THREE.Quaternion()); }
+  const nodes: Record<string, THREE.Object3D> = {}, base: Record<string, THREE.Vector3> = {};
+  for (const n of HEAD_PARTS) if (byName[n]) { nodes[n] = byName[n]; base[n] = byName[n].scale.clone(); }
+  const hs = look.hairStyle ?? 'short';
+  for (const n of ['hair_short', 'hair_helmet', 'hair_puff']) if (nodes[n]) nodes[n].visible = n === `hair_${hs}`;
+  for (const n of ['glass_n', 'glass_p', 'glass_bridge']) if (nodes[n]) nodes[n].visible = !!look.glasses;
+  return { root, bones, restLocal, restWorld, restPos: bones.hips.position.clone(), nodes, base };
+};
+
+const applyPose = (rig: Rig, p: Pose3D) => {
+  // desired WORLD-space rotation change per bone (relative to rest); bones without one inherit their parent's motion
+  const n = (a?: number) => a ?? 0;
+  const d: Record<string, THREE.Quaternion> = {};
+  const lean = n(p.lean), step = n(p.step);
+  d.hips = q('z', lean * 0.3);
+  d.spine = q('z', lean * 0.5).multiply(q('y', n(p.look) * 4));
+  d.neck = q('x', n(p.nod) * 0.35).multiply(q('y', n(p.look) * 8));
+  d.head = q('z', n(p.head)).multiply(q('y', n(p.look) * 14)).multiply(q('x', n(p.nod) * 0.65));
+  const arms: [string, number, number, number, number][] = [['p', 1, p.armR ?? 8, p.elbowR ?? 8, n(p.reachR)], ['n', -1, p.armL ?? 8, p.elbowL ?? 8, 0]];
+  for (const [s, sign, out, el, reach] of arms) {
+    const up = q('z', sign * out).multiply(q('x', -reach));
+    d[`upperarm_${s}`] = up;
+    d[`forearm_${s}`] = up.clone().multiply(q('x', -el * 1.1)).multiply(q('z', sign * el * 0.25));
   }
-  if (look.hairStyle === 'helmet') return <mesh position={[0, 0.02, -0.005]} castShadow><sphereGeometry args={[0.118, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.55]} /><Mat c={c} r={0.4} /></mesh>;
-  return <mesh position={[0, 0.012, -0.012]} rotation={[-0.22, 0, 0]} castShadow><sphereGeometry args={[0.115, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.5]} /><Mat c={c} r={0.85} /></mesh>;
+  d.thigh_p = q('x', step * 3); d.thigh_n = q('x', -step * 3);
+  d.shin_p = q('x', -Math.max(0, step) * 1.2); d.shin_n = q('x', -Math.max(0, -step) * 1.2);
+
+  const curW: Record<string, THREE.Quaternion> = {};
+  const rootW = new THREE.Quaternion();
+  for (const b of BONES) {
+    const pw = PARENT[b] ? curW[PARENT[b]!] : rootW;
+    if (d[b]) {
+      curW[b] = d[b].clone().multiply(rig.restWorld[b]);
+      rig.bones[b].quaternion.copy(pw.clone().invert().multiply(curW[b]));
+    } else {
+      rig.bones[b].quaternion.copy(rig.restLocal[b]);
+      curW[b] = pw.clone().multiply(rig.restLocal[b]);
+    }
+  }
+  rig.bones.head.scale.setScalar(1.2);   // stylised: slightly large head reads better on a phone
+  rig.bones.hips.position.set(rig.restPos.x + step * 0.018, rig.restPos.y, rig.restPos.z);
+  rig.bones.chest.scale.set(1 + n(p.breath), 1 + n(p.breath) * 1.4, 1);
+
+  // face: blink by squashing the eyes, brows tilt with emotion, mouth switches between open / smile / flat
+  const N = rig.nodes, B = rig.base, ink = p.blink ?? 1;
+  const talk = n(p.talk), w = p.mouthW ?? 1;
+  const happy = p.emotion === 'happy', worried = p.emotion === 'worried', surprised = p.emotion === 'surprised';
+  for (const s of ['n', 'p']) {
+    const sgn = s === 'p' ? 1 : -1;
+    const eye = N[`eye_${s}`], pup = N[`pupil_${s}`], brow = N[`brow_${s}`];
+    if (eye) eye.scale.set(B[`eye_${s}`].x, B[`eye_${s}`].y, B[`eye_${s}`].z * Math.max(0.12, ink));
+    if (pup) { pup.scale.set(B[`pupil_${s}`].x, B[`pupil_${s}`].y, B[`pupil_${s}`].z * Math.max(0.12, ink)); pup.visible = ink > 0.4; }
+    if (brow) { brow.rotation.z = sgn * (worried ? 0.3 : -0.06); brow.position.y = (brow.userData.y0 ??= brow.position.y) + n(p.brow) * 0.008 + (surprised ? 0.007 : 0); }
+    if (N[`lid_${s}`]) N[`lid_${s}`].visible = false;
+  }
+  const mo = N.mouth_open, sm = N.mouth_smile, fl = N.mouth_flat;
+  const open = talk > 0.1 || surprised;
+  if (mo) { mo.visible = open; mo.scale.set(B.mouth_open.x * (1 - talk * 0.15) * w, B.mouth_open.y * (1 + (surprised ? 1.6 : 0) + talk * 3.6), B.mouth_open.z); }
+  if (sm) { sm.visible = !open && (happy || worried); sm.rotation.z = worried ? Math.PI : 0; }
+  if (fl) fl.visible = !open && !happy && !worried;
 };
 
 export const Person3D: React.FC<{ look: Look3D; pose?: Pose3D; position?: [number, number, number]; scale?: number; rotY?: number }> = ({ look, pose = {}, position = [0, 0, 0], scale = 1, rotY = 0 }) => {
-  const p = { armR: 8, armL: 8, ...pose };
-  const sway = (p.step ?? 0) * 0.018;
-  return (
-    <group position={position} scale={scale} rotation={[0, rotY, 0]}>
-      <group position={[sway, 0, 0]}>
-        <Leg side={-1} swing={(p.step ?? 0) * 3} look={look} />
-        <Leg side={1} swing={-(p.step ?? 0) * 3} look={look} />
-        <group position={[0, 0.93, 0]} rotation={[0, 0, rad(p.lean ?? 0)]}>
-          <group position={[0, -0.93, 0]}>
-            <Ball r={0.15} c={look.pants ?? '#2A2F45'} pos={[0, 0.94, 0]} scale={[1.18, 0.8, 0.78]} />
-            <group scale={[1 + (p.breath ?? 0), 1 + (p.breath ?? 0) * 1.4, 1]} position={[0, 0.92, 0]}>
-              <mesh position={[0, 0.27, 0]} scale={[1.2, 1, 0.66]} castShadow receiveShadow><cylinderGeometry args={[0.178, 0.14, 0.54, 28, 1]} /><Mat c={look.shirt} r={0.7} /></mesh>
-              <Ball r={0.178} c={look.shirt} pos={[0, 0.54, 0]} scale={[1.2, 0.46, 0.66]} rough={0.7} />
-              <Ball r={0.14} c={look.shirt} pos={[0, 0.0, 0]} scale={[1.2, 0.5, 0.66]} rough={0.7} />
-            </group>
-            <Arm side={-1} out={p.armL ?? 8} elbow={p.elbowL ?? 8} reach={0} look={look} />
-            <Arm side={1} out={p.armR ?? 8} elbow={p.elbowR ?? 8} reach={p.reachR ?? 0} look={look} />
-            <mesh position={[0, 1.55, 0]} castShadow><cylinderGeometry args={[0.05, 0.058, 0.1, 18]} /><Mat c={look.skin} /></mesh>
-            <group position={[0, 1.66, 0]} rotation={[rad(p.nod ?? 0), rad((p.look ?? 0) * 22), rad(p.head ?? 0)]} scale={1.2}>
-              <Ball r={0.108} c={look.skin} scale={[0.92, 1.12, 1]} rough={0.55} />
-              {[-1, 1].map((x) => <Ball key={x} r={0.02} c={look.skin} pos={[x * 0.097, -0.005, -0.005]} scale={[0.6, 1.1, 0.8]} />)}
-              <Face look={look} pose={p} />
-              <Hair look={look} />
-            </group>
-          </group>
-        </group>
-      </group>
-    </group>
-  );
+  const gltf = useLoader(GLTFLoader, staticFile('models/human.glb'));
+  const key = JSON.stringify(look);
+  const rig = useMemo(() => buildRig(gltf.scene, look), [gltf, key]);
+  const poseRef = useRef(pose); poseRef.current = pose;
+  const invalidate = useThree((s) => s.invalidate);
+  useLayoutEffect(() => { applyPose(rig, pose); rig.root.updateMatrixWorld(true); invalidate(); });
+  useFrame(() => { applyPose(rig, poseRef.current); });
+  return <group position={position} scale={scale} rotation={[0, rotY, 0]}><primitive object={rig.root} /></group>;
 };
-
-export const _THREE = THREE; // keeps the three import used when tree-shaking in some bundlers
