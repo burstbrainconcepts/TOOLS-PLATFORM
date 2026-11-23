@@ -28,9 +28,9 @@ def _line(draw, points, fill, width):
 
 
 def _background(draw, width, height, palette):
-    sky = tuple(palette.get("sky", [116, 184, 226]))
-    hill = tuple(palette.get("hill", [80, 145, 91]))
-    ground = tuple(palette.get("ground", [82, 132, 73]))
+    sky = tuple(palette.get("sky") or [116, 184, 226])
+    hill = tuple(palette.get("hill") or [80, 145, 91])
+    ground = tuple(palette.get("ground") or [82, 132, 73])
     draw.rectangle((0, 0, width, height), fill=sky)
     draw.ellipse((width * .70, height * .08, width * .86, height * .22), fill=(255, 222, 139))
     draw.ellipse((-width * .2, height * .49, width * .58, height * .82), fill=hill)
@@ -39,11 +39,11 @@ def _background(draw, width, height, palette):
 
 
 def _character(draw, cx, floor, scale, t, action, palette):
-    skin = tuple(palette.get("skin", [154, 94, 63]))
-    shirt = tuple(palette.get("shirt", [231, 157, 87]))
-    trousers = tuple(palette.get("trousers", [48, 70, 105]))
-    hair = tuple(palette.get("hair", [48, 34, 28]))
-    hat = tuple(palette.get("hat", [221, 164, 69]))
+    skin = tuple(palette.get("skin") or [154, 94, 63])
+    shirt = tuple(palette.get("shirt") or [231, 157, 87])
+    trousers = tuple(palette.get("trousers") or [48, 70, 105])
+    hair = tuple(palette.get("hair") or [48, 34, 28])
+    hat = tuple(palette.get("hat") or [221, 164, 69])
     s = scale
     bob = math.sin(t * math.tau * (2 if action == "walk" else 1)) * 5 * s
     hip_y = floor - 105*s + bob
