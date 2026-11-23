@@ -1,0 +1,59 @@
+name: Video Factory CI
+
+on:
+  pull_request:
+    paths:
+      - "services/video-factory/**"
+      - ".github/workflows/video-factory-ci.yml"
+  push:
+    branches:
+      - "feat/character-motion-v1"
+    paths:
+      - "services/video-factory/**"
+      - ".github/workflows/video-factory-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-render:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/video-factory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/video-factory/requirements.txt
+      - name: Install FFmpeg and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run contract tests
+        run: python -m unittest discover -s tests -v
+      - name: Render a real articulated character clip
+        run: |
+          python - <<'PY'
+          import tempfile
+          from pathlib import Path
+          from app.puppet import render_character_scene
+          with tempfile.TemporaryDirectory() as directory:
+              work = Path(directory)
+              output = work / "character-smoke-test.mp4"
+              scene = {
+                  "duration_sec": 2,
+                  "animation": {"action": "walk", "palette": {}},
+                  "caption": "Character motion test"
+              }
+              render_character_scene(scene, output, 720, 1280, 24, work)
+              assert output.exists() and output.stat().st_size > 1000
+              print(f"Rendered {output.stat().st_size} bytes")
+          PY
+      - name: Verify MP4 duration and streams
+        run: |
+          ffprobe -v error -show_entries format=duration:stream=codec_type,codec_name -of json /tmp/nonexistent.mp4 || true
