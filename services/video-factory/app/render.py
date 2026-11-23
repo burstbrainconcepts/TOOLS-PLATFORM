@@ -1,4 +1,5 @@
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -128,6 +129,4 @@ def render(manifest: dict, job_id: str, progress=None) -> dict:
             "size_bytes": output.stat().st_size,
         }
     finally:
-        for item in work.glob("*"):
-            item.unlink(missing_ok=True)
-        work.rmdir()
+        shutil.rmtree(work, ignore_errors=True)
