@@ -39,21 +39,20 @@ jobs:
       - name: Render a real articulated character clip
         run: |
           python - <<'PY'
-          import tempfile
           from pathlib import Path
           from app.puppet import render_character_scene
-          with tempfile.TemporaryDirectory() as directory:
-              work = Path(directory)
-              output = work / "character-smoke-test.mp4"
-              scene = {
-                  "duration_sec": 2,
-                  "animation": {"action": "walk", "palette": {}},
-                  "caption": "Character motion test"
-              }
-              render_character_scene(scene, output, 720, 1280, 24, work)
-              assert output.exists() and output.stat().st_size > 1000
-              print(f"Rendered {output.stat().st_size} bytes")
+          work = Path("/tmp/character-render-check")
+          work.mkdir(exist_ok=True)
+          output = work / "character-smoke-test.mp4"
+          scene = {
+              "duration_sec": 2,
+              "animation": {"action": "walk", "palette": {}},
+              "caption": "Character motion test"
+          }
+          render_character_scene(scene, output, 720, 1280, 24, work)
+          assert output.exists() and output.stat().st_size > 1000
+          print(f"Rendered {output.stat().st_size} bytes")
           PY
       - name: Verify MP4 duration and streams
         run: |
-          ffprobe -v error -show_entries format=duration:stream=codec_type,codec_name -of json /tmp/nonexistent.mp4 || true
+          ffprobe -v error -show_entries format=duration:stream=codec_type,codec_name -of json /tmp/character-render-check/character-smoke-test.mp4
