@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from app.config import ASSET_DIR, OUTPUT_DIR, TEMP_DIR
+from app.puppet import render_character_scene
 
 def run(command: list[str]):
     completed = subprocess.run(command, capture_output=True, text=True, timeout=3600)
@@ -40,25 +41,23 @@ def render(manifest: dict, job_id: str, progress=None) -> dict:
 
     try:
         for index, scene in enumerate(scenes):
-            asset = find_asset(scene["asset_id"])
             duration = float(scene["duration_sec"])
-            segment = work / f"scene-{index:03}.mp4"
-            is_image = asset.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}
-            base = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
-            if is_image:
-                zoom = f"zoompan=z='min(zoom+0.0008,1.08)':d=1:s={width}x{height}:fps={fps}"
-                vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},{zoom},setsar=1"
-                command = base + ["-loop", "1", "-i", str(asset), "-t", str(duration),
-                                  "-vf", vf, "-an", "-r", str(fps),
-                                  "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-                                  "-pix_fmt", "yuv420p", str(segment)]
+            segment = work / ("scene-%03d.mp4" % index)
+            if scene.get("animation"):
+                render_character_scene(scene, segment, width, height, fps, work)
             else:
-                vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1,fps={fps}"
-                command = base + ["-stream_loop", "-1", "-i", str(asset), "-t", str(duration),
-                                  "-vf", vf, "-an", "-c:v", "libx264",
-                                  "-preset", "veryfast", "-crf", "23",
-                                  "-pix_fmt", "yuv420p", str(segment)]
-            run(command)
+                asset = find_asset(scene["asset_id"])
+                is_image = asset.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}
+                base = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
+                if is_image:
+                    zoom = "zoompan=z='min(zoom+0.0008,1.08)':d=1:s=%d x %d:fps=%d" % (width, height, fps)
+                    zoom = zoom.replace(" x ", "x")
+                    vf = "scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d,%s,setsar=1" % (width,height,width,height,zoom)
+                    command = base + ["-loop", "1", "-i", str(asset), "-t", str(duration), "-vf", vf, "-an", "-r", str(fps), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", str(segment)]
+                else:
+                    vf = "scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d,setsar=1,fps=%d" % (width,height,width,height,fps)
+                    command = base + ["-stream_loop", "-1", "-i", str(asset), "-t", str(duration), "-vf", vf, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", str(segment)]
+                run(command)
             rendered_scenes.append(segment)
             caption = (scene.get("caption") or "").strip()
             if caption:
