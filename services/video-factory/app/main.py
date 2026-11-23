@@ -10,7 +10,7 @@ from app.config import API_KEY, ASSET_DIR, MAX_UPLOAD_BYTES
 from app.schemas import RenderRequest
 from app.tasks import celery_app, render_video
 
-app = FastAPI(title="Burst Brain Video Factory", version="0.1.0")
+app = FastAPI(title="Burst Brain Video Factory", version="0.2.0")
 
 def require_key(value: str | None):
     if not API_KEY:
@@ -61,7 +61,8 @@ async def upload_asset(file: UploadFile = File(...), x_api_key: str | None = Hea
 def create_job(request: RenderRequest, x_api_key: str | None = Header(default=None)):
     require_key(x_api_key)
     for scene in request.scenes:
-        locate_asset(scene.asset_id)
+        if scene.asset_id:
+            locate_asset(scene.asset_id)
     if request.narration_asset_id:
         locate_asset(request.narration_asset_id)
     if request.music_asset_id:
