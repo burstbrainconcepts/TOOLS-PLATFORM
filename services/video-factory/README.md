@@ -89,3 +89,45 @@ Every protected endpoint requires `X-API-Key`. The example UUID is a placeholder
 ## Deploying
 
 For the first reliable deployment, use a self-hosted Docker host with persistent Docker volumes and one worker. A small Railway service can host the API, but sustained video rendering is CPU/RAM intensive and ephemeral storage is unsuitable for source assets and final renders. If deploying on Railway, configure a persistent volume mounted at `/data`, a reachable Redis instance, and ensure the API and worker share the same storage backend. Verify platform limits before moving real workloads.
+
+
+## Procedural character animation (new)
+
+Scenes may now use a built-in CPU-rendered articulated character rig instead of an uploaded image or clip. This produces actual frame-to-frame limb, head, body-bob, prop and sapling movement; it is not a static-image pan/zoom.
+
+Example scene in a render manifest:
+
+```json
+{
+  "width": 720,
+  "height": 1280,
+  "fps": 24,
+  "scenes": [
+    {
+      "animation": {
+        "action": "walk",
+        "palette": {
+          "shirt": [210, 110, 65],
+          "trousers": [45, 68, 104]
+        }
+      },
+      "duration_sec": 4,
+      "caption": "Every journey starts somewhere"
+    },
+    {
+      "animation": {"action": "wave"},
+      "duration_sec": 3,
+      "caption": "Keep going"
+    },
+    {
+      "animation": {"action": "celebrate"},
+      "duration_sec": 3,
+      "caption": "You made it"
+    }
+  ]
+}
+```
+
+Supported rig actions: `idle`, `walk`, `wave`, `plant`, `water`, `celebrate`. Each animation scene must specify exactly one source: either `asset_id` or `animation`. RGB palette overrides accept three integers from 0 to 255.
+
+This is a first procedural puppet system. It provides deterministic articulated movement and reusable palette styling; it does not yet provide photorealistic character deformation, arbitrary pose estimation from reference images, generative motion diffusion, facial phoneme animation or lip-sync. Those require separate model/provider integrations and validation.
