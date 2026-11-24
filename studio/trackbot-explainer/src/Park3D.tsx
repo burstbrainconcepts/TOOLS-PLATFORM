@@ -35,7 +35,7 @@ export const Ground: React.FC<{ id: string; w: number; d: number; z: number; y?:
   diff.colorSpace = THREE.SRGBColorSpace;
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, y, z]} receiveShadow>
-      <planeGeometry args={[w, d]} /><meshStandardMaterial map={diff} normalMap={nor} roughnessMap={rough} color={tint} />
+      <planeGeometry args={[w, d]} /><meshStandardMaterial map={diff} normalMap={nor} roughnessMap={rough} roughness={1} envMapIntensity={0.35} color={tint} />
     </mesh>
   );
 };

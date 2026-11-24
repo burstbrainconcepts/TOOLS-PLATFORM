@@ -16,5 +16,6 @@
   "presenter": "ada",
   "sidekick": "mel",
   "setting": "woods",
-  "walk": true
+  "walk": true,
+  "hold": true
 }

@@ -11,10 +11,11 @@ export type TplScene = {
   title?: string; bullets?: string[]; icons?: string[]; labels?: string[]; stat?: { value: string; label: string };
   product?: { src: string; name?: string; tag?: string }; brand?: string; cta?: string;
   walk?: { dir: 1 | -1; speed?: number; run?: boolean };   // 3D only: characters walk in profile (dir = screen direction) while the set scrolls past
+  hold?: boolean;   // 3D only: the speaker holds the product (a bottle) in the hand instead of pointing
   action?: { type: 'kick' | 'cheer'; at?: number };   // 3D only: the first character kicks a ball (profile view) or celebrates, starting `at` seconds in
   frames: number; mouth: number[];
 };
-export type Ctx = { chars: Record<string, CharSpec>; palette: Palette; brand?: string; cta?: string; style?: '2d' | '3d'; quality3d?: number };
+export type Ctx = { chars: Record<string, CharSpec>; palette: Palette; brand?: string; cta?: string; style?: '2d' | '3d'; quality3d?: number; debug?: string };
 type P = { f: number; scene: TplScene; ctx: Ctx };
 
 const clampX = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
@@ -221,12 +222,12 @@ export const Product: React.FC<P> = ({ f, scene, ctx }) => {
   const k = spring({ frame: f - 4, fps: 30, config: { damping: 9 } });
   const bob = Math.sin(f / 14) * 9;
   return S(<Stage id="t-product" setting="studio" f={f} ctx={ctx}>
-    <g transform="translate(690 340)">
+    {!scene.hold && <g transform="translate(690 340)">
       {Array.from({ length: 12 }, (_, i) => <path key={i} d="M0 0 L-24 -480 L24 -480Z" fill={ctx.palette.accent} opacity={0.12} transform={`rotate(${i * 30 + f * 0.4})`} />)}
       <circle r={250} fill="#fff" opacity={0.9} stroke={K.ink} strokeWidth={8} />
       <ellipse cx={0} cy={236} rx={150} ry={22} fill="#000" opacity={0.18} />
       {pr && ready && <g transform={`translate(0 ${bob}) scale(${k})`}><image href={url} x={-205} y={-205} width={410} height={410} preserveAspectRatio="xMidYMid meet" /></g>}
-    </g>
+    </g>}
     {pr?.tag && <g transform={`translate(690 650) scale(${ease(f, 10, 24)})`}><rect x={-230} y={-42} width={460} height={84} rx={42} fill={ctx.palette.accent} stroke={K.ink} strokeWidth={6} /><text x={0} y={15} textAnchor="middle" fontFamily={FONT} fontWeight={900} fontSize={40} fill="#fff">{pr.tag}</text></g>}
     <Cast f={f} scene={scene} ctx={ctx} xs={[210]} s={1.45} point />
     {bullets.slice(0, 3).map((b, i) => {

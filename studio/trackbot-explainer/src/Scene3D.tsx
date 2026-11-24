@@ -8,6 +8,12 @@ import { Person3D } from './Human3D';
 import { CAST_LAYOUT, perform, type Ctx, type TplScene } from './Templates';
 import { ParkSet } from './Park3D';
 import { PHOTO, PhotoFloor, PhotoBackdrop } from './Settings3D';
+import BD from './backdrops.json';
+import { gaitSpeedRig, GAIT } from './rigPose';
+
+const BDX = BD as Record<string, { yaw: number; horizon: string }>;
+// Gait speed that matches the stride (so the feet do not glide over the ground): mean backward foot speed during stance = 2*L*sin(A) / half-cycle
+export const gaitSpeed = (run: boolean | undefined, scl: number) => gaitSpeedRig(run) * 1.08 * scl;
 
 // 3D stage for episodes with ctx.style === '3d'. The SVG templates still draw titles, cards and captions on top; only the
 // set and the people are 3D. Camera: telephoto-ish (fov 30) at 11.6 m, level, 1.38 m high, so that the screen position of a
@@ -26,12 +32,17 @@ export const moodFor = (ctx: Ctx, setting?: string): Mood => {
 };
 const hdrFor = (setting?: string) => PHOTO[setting ?? '']?.hdri ?? (setting === 'street' || setting === 'park' ? 'kloppenheim_02_puresky_1k' : setting === 'room' ? 'brown_photostudio_02_1k' : 'studio_small_09_1k');
 
-const Env: React.FC<{ setting?: string; showBackground: boolean }> = ({ setting, showBackground }) => {
+const Env: React.FC<{ setting?: string; showBackground: boolean; debugBg?: boolean }> = ({ setting, showBackground, debugBg }) => {
   const hdr = useLoader(RGBELoader, staticFile(`pbr/hdri/${hdrFor(setting)}.hdr`));
   const scene = useThree((s) => s.scene);
   const ph = PHOTO[setting ?? ''];
   hdr.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = hdr; (scene as any).environmentIntensity = ph ? 1.0 : 0.9;
+  // align the lighting HDRI with the backdrop crop: the crop looks along yaw theta, the camera looks along -z
+  const bd = BDX[setting ?? ''];
+  const phi = bd ? Math.PI / 2 + (bd.yaw * Math.PI) / 180 : 0;   // three.js flips the sign of environment/background rotations
+  if (bd) (scene as any).environmentRotation = new THREE.Euler(0, phi, 0);
+  if (debugBg && bd) { scene.background = hdr; (scene as any).backgroundBlurriness = 0; (scene as any).backgroundIntensity = 1; (scene as any).backgroundRotation = new THREE.Euler(0, phi, 0); return null; }
   if (showBackground) {
     scene.background = hdr;
     (scene as any).backgroundBlurriness = ph ? ph.blur : setting === 'park' ? 0.04 : setting === 'street' ? 0.12 : 0.55;
@@ -105,25 +116,41 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
         const talking = id === speaker, ff = f + i * 11, seed = i * 2.1 + 0.7, towards = Math.sign(sx - xs[i]);
         const pf = perform(ff, scene.mouth, talking, seed, towards);
         const wave = Math.sin(ff / 9), g = talking && mouthAt > 0.12 ? 0.55 + 0.45 * Math.sin(ff / 20) : 0;
-        const pointing = !!lay.point && talking;
+        const pointing = !!lay.point && talking && !scene.hold;
         const armR = pointing ? 96 + wave * 4 : 12 + g * 55 + (talking && mouthAt > 0.12 ? wave * 5 : 0);
         const bp = (ff + 30 + seed * 40) % 110;
-        const wk = scene.walk, cad = wk?.run ? 1.35 : 0.95;                       // gait cycles per second
+        const wk = scene.walk, cad = wk?.run ? GAIT.run.cad : GAIT.walk.cad;                       // gait cycles per second
         const act = scene.action, t0 = Math.round((act?.at ?? 0.8) * 30);
         const isKicker = act?.type === 'kick' && i === 0;
         const kickK = isKicker && f >= t0 ? (f - t0) / 27 : undefined;                  // the kick takes 0.9 s
         const cheer = act?.type === 'cheer' ? Math.min(1, Math.max(0, (f - t0) / 8)) : 0;
+        const holding = !!scene.hold && talking && !wk && !isKicker;
         const emotion = cheer > 0 ? 'happy' : talking ? (scene.emotion ?? 'neutral') : 'happy';
         const scl = (s * (multi ? 0.92 : 1)) / 1.55;
+        const px = screenToWorldX(xs[i]);
         return (
-          <Person3D key={id} look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses, body: c.body, model: c.model }}
+          <React.Fragment key={id}>
+            <ContactShadow x={px} w={(wk || isKicker ? 1.5 : 0.95) * scl} d={(wk || isKicker ? 0.5 : 0.55) * scl} />
+          <Person3D look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses, body: c.body, model: c.model }}
             position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={isKicker ? Math.PI / 2 : wk ? wk.dir * Math.PI / 2 : (pointing ? -0.15 : towards * (talking ? 0.1 : 0.32))}
-            pose={isKicker || cheer > 0 ? { head: pf.head * 0.5, nod: cheer > 0 ? -8 : 3, look: 0, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: cheer > 0 ? 0.7 + 0.3 * Math.sin(f / 2) : 0, mouthW: 1.3, brow: cheer > 0 ? 0.8 : 0.2, blink: 1, emotion, breath: Math.sin(ff / 17) * 0.008, kick: kickK !== undefined && kickK <= 1 ? kickK : undefined, cheer, walk: (f - t0) * 0.31 } : wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: pointing ? 6 : 10 + pf.elbow, elbowL: 10,
-              talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }} />
+            pose={isKicker || cheer > 0 ? { head: pf.head * 0.5, nod: cheer > 0 ? -8 : 3, look: 0, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: cheer > 0 ? 0.7 + 0.3 * Math.sin(f / 2) : 0, mouthW: 1.3, brow: cheer > 0 ? 0.8 : 0.2, blink: 1, emotion, breath: Math.sin(ff / 17) * 0.008, kick: kickK !== undefined && kickK <= 1 ? kickK : undefined, cheer, walk: (f - t0) * 0.31 } : wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: holding ? 24 : Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: holding ? 95 : pointing ? 6 : 10 + pf.elbow, elbowL: 10, reachR: holding ? 55 : 0, grip: holding ? 1 : 0,
+              talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }} held={holding ? { color: ctx.palette.accent, cap: '#162434' } : undefined} />
+          </React.Fragment>
         );
       })}
     </>
   );
+};
+
+// soft contact shadow under a person: grounds them on the floor (the real shadow map only covers a small area and has no ambient occlusion)
+const ContactShadow: React.FC<{ x: number; w: number; d: number }> = ({ x, w, d }) => {
+  const tex = useMemo(() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d')!; const gr = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    gr.addColorStop(0, 'rgba(0,0,0,0.85)'); gr.addColorStop(0.5, 'rgba(0,0,0,0.4)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }, []);
+  return <mesh rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.02, 0]} scale={[w, d, 1]} renderOrder={2}><planeGeometry args={[1, 1]} /><meshBasicMaterial map={tex} transparent depthWrite={false} opacity={0.7} /></mesh>;
 };
 
 // a football: white with dark panels, rolls at the kicker's feet and flies off when kicked
@@ -150,22 +177,24 @@ export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?:
   const mood = moodFor(ctx, setting);
   const park = setting === 'park';
   const photo = PHOTO[setting];
+  const lay0 = CAST_LAYOUT[scene.template] ?? {}, walkScl = ((lay0.s ?? 1.55) * ((scene.who?.length ?? 1) > 1 ? 0.92 : 1)) / 1.55;   // same scale People applies
+  const horizon = BDX[setting]?.horizon;
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       <div style={{ width: rw, height: rh, transform: `scale(${1 / quality})`, transformOrigin: '0 0' }}>
-        <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0, antialias: false }} camera={{ position: [0, CAM_Y, CAM_Z], fov: 30, near: 1, far: 80 }}>
+        <ThreeCanvas width={rw} height={rh} shadows gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0, antialias: true }} camera={{ position: [0, CAM_Y, CAM_Z], fov: 30, near: 1, far: 80 }}>
           <CameraRig />
           <Suspense fallback={<Loading />}>
-            <Env setting={setting} showBackground={park} />
+            <Env setting={setting} showBackground={park} debugBg={ctx.debug === 'envbg'} />
             {!park && !photo && <Cyclorama f={f} ctx={ctx} mood={mood} />}
-            {photo && <><PhotoBackdrop name={setting} /><PhotoFloor p={photo} shift={scene.walk ? scene.walk.dir * (scene.walk.speed ?? (scene.walk.run ? 3.4 : 1.4)) * f / 30 : 0} /></>}
-            {park && <ParkSet walk={scene.walk ? { dir: scene.walk.dir, dist: ((scene.walk.speed ?? (scene.walk.run ? 3.4 : 1.4)) * f) / 30 } : undefined} />}
-            {photo ? (photo.fog && <fog attach="fog" args={photo.fog} />) : <fog attach="fog" args={park ? ['#bcd4e6', 16, 52] : [mood.bottom, 9, 26]} />}
+            {photo && <>{ctx.debug !== 'envbg' && <PhotoBackdrop name={setting} />}<PhotoFloor p={photo} shift={scene.walk ? scene.walk.dir * (scene.walk.speed ?? gaitSpeed(scene.walk.run, walkScl)) * f / 30 : 0} /></>}
+            {park && <ParkSet walk={scene.walk ? { dir: scene.walk.dir, dist: ((scene.walk.speed ?? gaitSpeed(scene.walk.run, walkScl)) * f) / 30 } : undefined} />}
+            {photo ? (photo.fog && <fog attach="fog" args={[horizon ?? photo.fog[0], 22, 70]} />) : <fog attach="fog" args={park ? ['#bcd4e6', 16, 52] : [mood.bottom, 9, 26]} />}
             {!park && !photo && <Floor mood={mood} setting={setting} />}
             <hemisphereLight args={['#ffffff', '#555566', 0.45]} />
             <directionalLight position={[-4, 8, 7]} intensity={2.4} color="#fff3e2" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-4} shadow-camera-right={4} shadow-camera-top={4} shadow-camera-bottom={-1} shadow-camera-near={2} shadow-camera-far={24} shadow-bias={-0.0004} />
-            <pointLight position={[-3.2, 2.6, -2.5]} intensity={park || photo ? 5 : 26} color={park || photo ? '#ffffff' : ctx.palette.accent} distance={14} />
-            <pointLight position={[3.4, 2.4, -2.5]} intensity={park || photo ? 4 : 22} color={park || photo ? '#fff4e0' : ctx.palette.accent2} distance={14} />
+            <pointLight position={[-3.2, 2.6, -2.5]} intensity={photo ? 0 : park ? 5 : 26} color={park ? '#ffffff' : ctx.palette.accent} distance={14} />
+            <pointLight position={[3.4, 2.4, -2.5]} intensity={photo ? 0 : park ? 4 : 22} color={park ? '#fff4e0' : ctx.palette.accent2} distance={14} />
             <People f={f} scene={scene} ctx={ctx} />
             {scene.action?.type === 'kick' && <Ball f={f} x0={screenToWorldX((CAST_LAYOUT[scene.template]?.xs ?? (scene.who && scene.who.length > 1 ? [300, 760] : [520]))[0]) + 0.34} t0={Math.round((scene.action.at ?? 0.8) * 30)} />}
           </Suspense>

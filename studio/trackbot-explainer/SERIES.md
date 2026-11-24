@@ -71,3 +71,15 @@ Set `"setting"` on a scene to one of: `studio`, `room`, `street` (coloured backd
 matching textured floor (ambientCG CC0), lit by that location's own HDRI. To add one: put its entry in `src/Settings3D.tsx`, copy the 1k HDRI into
 `public/pbr/hdri/`, add a floor texture folder under `public/pbr/` if needed, run `scripts/make-backdrops.py`, and add the name to `SETTINGS` in `scripts/series/lib.mjs`.
 Limits: the backdrop is a flat photo (no parallax), the floor/backdrop seam is visible at the horizon, and a stadium crowd is not available as a free HDRI.
+
+## Quality gates (measured, not eyeballed)
+Run these before accepting any change to characters, motion or rendering. Thresholds are **proposals set from the first measurements, not calibrated against a reference clip.**
+
+| Gate | Command | What it measures | Result so far |
+|---|---|---|---|
+| Foot sliding | `node scripts/qa/gait-probe.mjs` | Runs the real `src/rigPose.ts` on the real character file in Node; for walk and run, how fast a planted foot moves relative to the scrolling floor (mean and 95th percentile as % of floor speed) and foot penetration | old sine-wave gait: mean slip 44% (walk) / 60% (run), feet barely touch the floor. Foot-IK gait: 3.2% / 2.7% mean, 6.3% / 5.4% p95, 0 cm sink. Gate: mean <= 5%, p95 <= 10%, sink <= 1.5 cm |
+| Edge quality | `python scripts/qa/edge-quality.py <production.png> <2x-reference.png> x0 y0 x1 y1` | SSIM between a production frame and a supersampled (2x) reference, over a region and over edge pixels | 1x: 0.925 / 0.873 (fails). 1.5x: 0.964 / 0.940 (passes). **Render at `quality3d >= 1.5`**. Gate: region >= 0.96, edges >= 0.90 |
+| Lighting alignment | `ctx.debug = "envbg"` | shows the lighting HDRI itself as the background, rotated as used for lighting; it must match the backdrop crop | verified by eye for `urban` and `market` (rotation = pi/2 + yaw; three.js flips the sign of environment rotation) |
+
+Gait design: walk and run are defined by **foot paths** (`GAIT`, `gaitState`, two-bone IK in `src/rigPose.ts`): in stance the foot moves back in a straight line at the floor's speed, in swing it arcs forward. `gaitSpeedRig` gives the floor speed that keeps planted feet still; `Scene3D` scrolls the floor by exactly that.
+Not covered by any gate yet: clothing intersection, lip-sync agreement, temporal flicker, lighting colour consistency.

@@ -8,7 +8,7 @@ import { Ground } from './Park3D';
 // scene, plus a textured floor (ambientCG CC0) and a light haze. Pick one per scene with `"setting": "<name>"`.
 export type Photo = {
   label: string; hdri: string; blur: number; intensity: number; rot: number;      // backdrop: file, blur 0..1, brightness, rotation (rad)
-  floor: string; repeat: number; tint: string; fog: [string, number, number] | null; exposure?: number;
+  floor: string; repeat: number; tint: string; fog: [string, number, number] | null; exposure?: number; tile?: number;   // tile = metres per texture repeat (default 3)
 };
 export const PHOTO: Record<string, Photo> = {
   urban:   { label: 'City street and skyline', hdri: 'canary_wharf_1k', blur: 0.10, intensity: 0.8, rot: 0.0, floor: 'paving_153', repeat: 60, tint: '#bdbdbd', fog: ['#aab4be', 28, 90] },
@@ -23,13 +23,14 @@ export const PHOTO: Record<string, Photo> = {
   field:   { label: 'Open sports field', hdri: 'belfast_open_field_1k', blur: 0.06, intensity: 0.55, rot: 0.0, floor: 'grass_001', repeat: 50, tint: '#c5e0a0', fog: ['#cfd9e3', 40, 120] },
   farm:    { label: 'Farmland', hdri: 'belfast_farmhouse_1k', blur: 0.06, intensity: 0.6, rot: 0.0, floor: 'grass_001', repeat: 50, tint: '#cfd8a8', fog: ['#c8d6e3', 40, 120] },
   orchard: { label: 'Orchard track', hdri: 'citrus_orchard_road_1k', blur: 0.06, intensity: 0.55, rot: 0.0, floor: 'gravel_043', repeat: 50, tint: '#d2b48c', fog: ['#d4dde6', 40, 120] },
-  stadium: { label: 'Football stadium (procedural crowd)', hdri: 'belfast_open_field_1k', blur: 0, intensity: 0.5, rot: 0.0, floor: 'pitch', repeat: 18.75, tint: '#ffffff', fog: null },
+  stadium: { label: 'Football stadium (procedural crowd)', hdri: 'belfast_open_field_1k', blur: 0, intensity: 0.5, rot: 0.0, floor: 'pitch', repeat: 18.75, tint: '#ffffff', fog: null, tile: 4 },
   woods:   { label: 'Woodland', hdri: 'epping_forest_01_1k', blur: 0.08, intensity: 0.6, rot: 0.0, floor: 'ground_037', repeat: 50, tint: '#b8a58a', fog: ['#b9c4a8', 22, 80] },
 };
 
-export const PhotoFloor: React.FC<{ p: Photo; shift?: number }> = ({ p, shift = 0 }) => (
-  <Ground id={p.floor} w={300} d={300} z={-60} repeat={[p.repeat * 4, p.repeat * 4]} tint={p.tint} scroll={[shift / (300 / (p.repeat * 4)), 0]} />
-);
+export const PhotoFloor: React.FC<{ p: Photo; shift?: number }> = ({ p, shift = 0 }) => {
+  const tile = p.tile ?? 3;
+  return <Ground id={p.floor} w={300} d={300} z={-60} repeat={[300 / tile, 300 / tile]} tint={p.tint} scroll={[shift / tile, 0]} />;
+};
 
 // The backdrop is a pre-rendered, slightly blurred crop of the location photo (scripts/make-backdrops.py) on a plane behind the set,
 // sized to fill the 3D camera's view exactly (vertical field of view 34 degrees, 9:16, horizon in the middle).
