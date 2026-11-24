@@ -112,7 +112,7 @@ export const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
 // Walk and run are defined by FOOT PATHS, not by joint sine waves: in stance the foot moves backward in a straight line at the floor's speed
 // (so it does not slide), in swing it lifts and arcs forward. A two-bone IK solver (thigh + calf, in the sagittal plane) then finds the joint angles.
 // S = half step length in rig metres, cad = gait cycles per second, duty = fraction of the cycle a foot is on the ground, lift = swing foot height.
-export const GAIT = { walk: { S: 0.34, cad: 0.95, duty: 0.5, lift: 0.08 }, run: { S: 0.5, cad: 1.35, duty: 0.4, lift: 0.18 } };
+export const GAIT = { walk: { S: 0.26, cad: 1.15, duty: 0.5, lift: 0.07 }, run: { S: 0.38, cad: 1.4, duty: 0.4, lift: 0.16 } };
 export const gaitSpeedRig = (run?: boolean) => { const g = run ? GAIT.run : GAIT.walk; return (2 * g.S) / (g.duty / g.cad); };   // floor speed that keeps planted feet still (rig metres/s)
 const frac = (x: number) => x - Math.floor(x);
 type Gait = { ry: number; S: number; p: { fz: number; fy: number; u: number }; n: { fz: number; fy: number; u: number }; duty: number };
@@ -124,10 +124,14 @@ const gaitState = (rig: Rig, phase: number, run: boolean): Gait => {
     const t = (u - g.duty) / (1 - g.duty), e = t * t * (3 - 2 * t);
     return { fz: -g.S + 2 * g.S * e, fy: g.lift * Math.sin(Math.PI * t), u };
   };
-  const reach = rig.leg.p.l1 + rig.leg.p.l2, hy0 = rig.leg.p.hip.y, aH = rig.leg.p.ankleY;
-  const drop = Math.max(0, (hy0 - aH) - Math.sqrt((reach * 0.985) ** 2 - g.S ** 2));      // lower the hips so the planted foot stays reachable at full stride
-  const bob = (run ? 0.03 : 0.012) * -Math.cos(4 * Math.PI * up);                       // body is highest at mid-stance
-  return { ry: -drop + bob, S: g.S, p: foot(up), n: foot(frac(up + 0.5)), duty: g.duty };
+  const reach = (rig.leg.p.l1 + rig.leg.p.l2) * 0.985, hy0 = rig.leg.p.hip.y, aH = rig.leg.p.ankleY;
+  // hips ride a compass-gait arc: just low enough for each leg to reach its foot target, so they are highest at mid-stance (leg nearly straight)
+  // and dip at heel strike / toe-off, instead of crouching all the time
+  const need = (f: { fz: number; fy: number }) => Math.max(0, (hy0 - aH - f.fy) - Math.sqrt(Math.max(0, reach * reach - f.fz * f.fz)));
+  const fp = foot(up), fn = foot(frac(up + 0.5));
+  const drop = Math.max(need(fp), need(fn));
+  const bob = 0;
+  return { ry: -drop + bob, S: g.S, p: fp, n: fn, duty: g.duty };
 };
 
 export const applyPose = (rig: Rig, p: Pose3D) => {
