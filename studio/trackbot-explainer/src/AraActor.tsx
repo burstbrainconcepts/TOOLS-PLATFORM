@@ -20,6 +20,8 @@ export const AraActor: React.FC<{ face?: AraFace; model: string; clip: string; t
   useLayoutEffect(() => {
     if (!clipObj) return;
     mixer.stopAllAction(); const a = mixer.clipAction(clipObj); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = true; a.play();
+    const needsProp = /pick|carry|put down|drop|throw|ball/i.test(clip);   // Ara bakes a parcel (and other props) into the character: show it only for clips that use it
+    scene.traverse((o) => { if (/^(Parcel|WeaponR|Phone|Ball)/i.test(o.name)) o.visible = needsProp; const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m && /^Parcel/i.test(m.name)) o.visible = needsProp; });
     mixer.setTime(Math.max(0, t));
     if (face) scene.traverse((o) => {                       // face: the mouth shapes from the Rhubarb cues, blinking and the emotion smile, written to the ARKit-named morph targets
       const m = o as THREE.Mesh; const d = m.morphTargetDictionary, inf = m.morphTargetInfluences; if (!d || !inf) return;
