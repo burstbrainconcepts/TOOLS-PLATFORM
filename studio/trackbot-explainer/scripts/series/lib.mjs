@@ -38,6 +38,7 @@ export function lintEpisode(bible, ep, opts = {}) {   // opts.clips: names of av
     if (s.speaker && !who.includes(s.speaker)) errors.push(`${at}: speaker "${s.speaker}" is not in "who"`);
     if (s.setting && !SETTINGS.includes(s.setting)) errors.push(`${at}: unknown setting "${s.setting}" (known: ${SETTINGS.join(', ')})`);
     if (s.clip && opts.clips && !opts.clips.includes(s.clip.name)) errors.push(`${at}: unknown motion clip "${s.clip.name}" (available: ${opts.clips.join(', ') || 'none'})`);
+    if (s.ara && opts.araClips) for (const c of [s.ara.clip, ...Object.values(s.ara.clips ?? {})]) { const k = String(c).toLowerCase().replace(/[^a-z0-9]/g, ''); if (!opts.araClips.some((n) => n.toLowerCase().replace(/[^a-z0-9]/g, '').startsWith(k))) errors.push(`${at}: unknown Ara clip "${c}" (list them: node scripts/ara/list-clips.mjs)`); }
     if (s.emotion && !EMOTIONS.includes(s.emotion)) errors.push(`${at}: unknown emotion "${s.emotion}"`);
     for (const ic of s.icons ?? []) if (!ICONS.includes(ic)) errors.push(`${at}: unknown icon "${ic}" (known: ${ICONS.join(', ')})`);
     if ((s.bullets?.length ?? 0) > 4) errors.push(`${at}: at most 4 bullets`);

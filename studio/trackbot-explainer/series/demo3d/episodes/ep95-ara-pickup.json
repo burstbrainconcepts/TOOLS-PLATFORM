@@ -1,2 +1,2 @@
-{ "id": "ara-pickup", "title": "Ara clip test",
-  "scenes": [ { "template": "talk", "who": ["ada"], "setting": "woods", "ara": { "clip": "pick up", "model": "chef", "dir": 1 }, "text": "This is a pick up clip from the library." } ] }
+{ "id": "ara-pickup", "title": "Ara test", "cast": ["ada","mel"],
+  "scenes": [ { "template": "talk", "who": ["ada","mel"], "speaker": "ada", "setting": "woods", "ara": { "clip": "talk with gestures", "clips": {"ada":"talk with gestures","mel":"idle"}, "dirs": {"ada": 0.3, "mel": -0.3} }, "emotion": "happy", "text": "Hello there, this is Ada speaking with a brand new body." } ] }

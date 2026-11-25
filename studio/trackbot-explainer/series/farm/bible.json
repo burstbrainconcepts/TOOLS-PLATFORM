@@ -1,0 +1,70 @@
+{
+ "id": "farm",
+ "title": "Farm test",
+ "note": "Mel is a PROVISIONAL second character. Replace names, looks and voices once the real cast is confirmed; every episode picks the change up automatically.",
+ "brand": "Quick Why",
+ "cta": "Comment WHY",
+ "palette": {
+  "accent": "#FF5A36",
+  "accent2": "#2B6CFF",
+  "bg": "#FBF7EF",
+  "ink": "#1B1B1F"
+ },
+ "characters": {
+  "ada": {
+   "name": "Ada",
+   "skin": "#8D5524",
+   "hair": "#1B1B1F",
+   "hairStyle": "puff",
+   "shirt": "#2B6CFF",
+   "pants": "#2A2F45",
+   "shoe": "#FF5A36",
+   "voice": "en_US-lessac-medium",
+   "body": "f",
+   "model": "ada"
+  },
+  "mel": {
+   "name": "Mel",
+   "skin": "#6B4226",
+   "hair": "#1B1B1F",
+   "hairStyle": "short",
+   "shirt": "#1FA66A",
+   "pants": "#2A2F45",
+   "shoe": "#FBF7EF",
+   "glasses": true,
+   "voice": "en_US-ryan-high",
+   "body": "m",
+   "model": "mel"
+  },
+  "farmer": {
+   "name": "Kofi",
+   "skin": "#6B4226",
+   "hair": "#1B1B1F",
+   "hairStyle": "short",
+   "shirt": "#C9A227",
+   "pants": "#4A5D3A",
+   "shoe": "#FBF7EF",
+   "voice": "en_US-ryan-high",
+   "body": "m",
+   "model": "farmer"
+  }
+ },
+ "rules": {
+  "maxWordsPerScene": 24,
+  "targetSeconds": [
+   8,
+   60
+  ],
+  "hookWithinSeconds": 4,
+  "maxSameTemplateInRow": 2,
+  "minTemplateVariety": 3,
+  "requireCta": true,
+  "bannedPhrases": [
+   "guaranteed",
+   "miracle",
+   "doctors hate"
+  ]
+ },
+ "style": "3d",
+ "quality3d": 1
+}

@@ -15,7 +15,8 @@ const bible = JSON.parse(readFileSync(biblePath, 'utf8')), ep = JSON.parse(readF
 const be = lintBible(bible);
 import { readdirSync } from 'node:fs';
 const clips = existsSync('src/mocap') ? readdirSync('src/mocap').filter((f) => f.endsWith('.json')).map((f) => f.replace('.json', '')) : [];
-const { errors, warnings, seconds } = lintEpisode(bible, ep, { clips });
+let araClips; try { const f = readdirSync('public/models/ara').find((x) => x.endsWith('.glb')); if (f) { const b = readFileSync('public/models/ara/' + f); araClips = JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString()).animations.map((a) => a.name); } } catch {}
+const { errors, warnings, seconds } = lintEpisode(bible, ep, { clips, araClips });
 for (const m of [...be, ...errors]) console.error(`ERROR  ${m}`);
 for (const m of warnings) console.warn(`warn   ${m}`);
 if (be.length || errors.length) process.exit(1);
