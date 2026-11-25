@@ -5,6 +5,7 @@ import { useLoader, useThree } from '@react-three/fiber';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import * as THREE from 'three';
 import { Person3D } from './Human3D';
+import { AraActor } from './AraActor';
 import { CAST_LAYOUT, perform, type Ctx, type TplScene } from './Templates';
 import { ParkSet } from './Park3D';
 import { PHOTO, PhotoFloor, PhotoBackdrop } from './Settings3D';
@@ -155,10 +156,10 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
         return (
           <React.Fragment key={id}>
             <ContactShadow x={px} w={(wk || isKicker ? 1.5 : 0.95) * scl} d={(wk || isKicker ? 0.5 : 0.55) * scl} />
-          <Person3D look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses, body: c.body, model: c.model }}
+          {scene.ara && i === 0 ? <AraActor model={scene.ara.model ?? 'chef'} clip={scene.ara.clip} loop={scene.ara.loop ?? true} t={Math.max(0, f / 30 - (scene.ara.at ?? 0)) * (scene.ara.rate ?? 1)} position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={(scene.ara.dir ?? 0) * Math.PI / 2} /> : <Person3D look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses, body: c.body, model: c.model }}
             position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={clipScene ? (scene.clip!.dir ?? 0) * Math.PI / 2 : isKicker ? Math.PI / 2 : wk ? wk.dir * Math.PI / 2 : (pointing ? -0.15 : towards * (talking ? 0.1 : 0.32))}
             pose={{ viseme, ...(clipScene ? { mocap: { clip: clipScene, t: Math.max(0, f / 30 - (scene.clip!.at ?? 0)) * (scene.clip!.rate ?? 1) }, blink: bp < 5 ? 0.15 : 1, emotion, talk: talking ? mouthAt : 0, brow: pf.brow, breath: Math.sin(ff / 17) * 0.008 } : isKicker || cheer > 0 ? { head: pf.head * 0.5, nod: cheer > 0 ? -8 : 3, look: 0, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: cheer > 0 ? 0.7 + 0.3 * Math.sin(f / 2) : 0, mouthW: 1.3, brow: cheer > 0 ? 0.8 : 0.2, blink: 1, emotion, breath: Math.sin(ff / 17) * 0.008, kick: kickK !== undefined && kickK <= 1 ? kickK : undefined, cheer, walk: (f - t0) * 0.31 } : wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: holding ? 16 : Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: holding ? 100 : pointing ? 6 : 10 + pf.elbow, elbowL: 10, reachR: holding ? 36 : 0, grip: holding ? 1 : 0,
-              talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }) }} held={holding ? { color: ctx.palette.accent, cap: '#162434' } : undefined} />
+              talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }) }} held={holding ? { color: ctx.palette.accent, cap: '#162434' } : undefined} />}
           </React.Fragment>
         );
       })}

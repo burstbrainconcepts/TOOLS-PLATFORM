@@ -104,3 +104,9 @@ Honest limits: the `steps` clip has about 16 cm/s mean foot slip (the IK walk ha
 `scripts/mocap/import-ara.py` reads the clips in Ara 3D Gen's `mocap-data.ts` (data only, none of its code runs) and writes our clip format. Imported so far: `ara-walk`, `ara-run`, `ara-sit` (sit down), `ara-cry`, `ara-laugh`. Others in that file: model_walk, walk_slouch, strafe_left/right, jump, sit_idle, punch_low, turns.
 Licence: Ara code is MIT; CMU data is free to use commercially but must not be resold on its own. Keep that credit in any release notes.
 Checked in stills only: walk and run poses look right (upright, arms bent for the run). The gait probe gives 7 contact samples and 46 cm/s foot slip for `ara-walk`, so the feet are not locked to the floor yet (the same foot-lock gap as `steps`). Our own IK gait stays the default for walking and running.
+
+### All 259 Ara 3D Gen clips in our renderer (main route now)
+1. One-time: `git clone --depth 1 https://github.com/olatunde85/3d-gen ~/3d-gen && (cd ~/3d-gen && npm ci --ignore-scripts)`.
+2. `scripts/ara/fetch.sh "The Chef" chef` builds a rigged character GLB with all 259 clips into `public/models/ara/chef.glb` (git-ignored, about 30 MB). Preset names come from `npx tsx packages/cli/src/cli.ts presets` in the Ara folder; `ARA_ARGS="--params file.json"` builds a custom character.
+3. In an episode scene: `"ara": { "clip": "pick up", "model": "chef", "dir": 1 }`. Clip names are matched without case or punctuation (`pick up`, `sit down`, `wave`, `handshake`, `sweep`, `carry idle` ...). The full list is in Ara's `animations` command (92 lines, grouped).
+Checked: `pick up` renders correctly (squat, reach to the floor, rise, feet planted). Not yet done: lip-sync morphs on Ara characters, custom Ada/Mel looks, two-character clips (handshake), and a lint check for `ara` clip names.

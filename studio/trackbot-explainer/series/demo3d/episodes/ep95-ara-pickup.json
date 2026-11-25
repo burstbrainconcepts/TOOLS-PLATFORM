@@ -1,0 +1,2 @@
+{ "id": "ara-pickup", "title": "Ara clip test",
+  "scenes": [ { "template": "talk", "who": ["ada"], "setting": "woods", "ara": { "clip": "pick up", "model": "chef", "dir": 1 }, "text": "This is a pick up clip from the library." } ] }
