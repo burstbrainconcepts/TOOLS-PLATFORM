@@ -99,3 +99,8 @@ Tool: VideoIntoBlenderModel (Apache-2.0, MediaPipe, CPU only, no account). About
 Clips included: `steps` (walk and crouch) and `kungfu` (a knee raise and stance), both extracted from the sample videos bundled with the tool.
 
 Honest limits: the `steps` clip has about 16 cm/s mean foot slip (the IK walk has about 4), so a foot-lock pass is still missing. Retargeting ignores bone twist. Fingers and face capture are not mapped yet. The sample videos have no clean walk cycle, run, sit or drink, so those need a filmed clip. Only stills of the kungfu clip were checked, not the motion in video.
+
+### Ready-made clips from Ara 3D Gen (CMU motion capture)
+`scripts/mocap/import-ara.py` reads the clips in Ara 3D Gen's `mocap-data.ts` (data only, none of its code runs) and writes our clip format. Imported so far: `ara-walk`, `ara-run`, `ara-sit` (sit down), `ara-cry`, `ara-laugh`. Others in that file: model_walk, walk_slouch, strafe_left/right, jump, sit_idle, punch_low, turns.
+Licence: Ara code is MIT; CMU data is free to use commercially but must not be resold on its own. Keep that credit in any release notes.
+Checked in stills only: walk and run poses look right (upright, arms bent for the run). The gait probe gives 7 contact samples and 46 cm/s foot slip for `ara-walk`, so the feet are not locked to the floor yet (the same foot-lock gap as `steps`). Our own IK gait stays the default for walking and running.

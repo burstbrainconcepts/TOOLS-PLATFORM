@@ -1,0 +1,22 @@
+{
+  "id": "ara-walk",
+  "cast": [
+    "ada"
+  ],
+  "scenes": [
+    {
+      "template": "talk",
+      "who": [
+        "ada"
+      ],
+      "setting": "woods",
+      "clip": {
+        "name": "ara-walk",
+        "dir": 1,
+        "floor": true
+      },
+      "emotion": "happy",
+      "text": "This is a real person's captured walk, copied onto Ada automatically from a video, with no hand animation at all, so any action can be added the same way."
+    }
+  ]
+}
