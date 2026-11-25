@@ -49,6 +49,11 @@ test('a number ending a sentence still matches the brief', () => {
   const e = ok(); e.type = 'ad'; e.brief = { price: '$24' }; e.scenes[1].text = 'It costs $24.';
   assert.deepEqual(lintEpisode(bible, e).errors, []);
 });
+test('unknown motion clips are errors when the clip list is known', () => {
+  const e = ok(); e.scenes[1].clip = { name: 'nope' };
+  assert.ok(lintEpisode(bible, e, { clips: ['steps'] }).errors.some((m) => m.includes('unknown motion clip')));
+  e.scenes[1].clip = { name: 'steps' }; assert.deepEqual(lintEpisode(bible, e, { clips: ['steps'] }).errors, []);
+});
 test('length estimate and target', () => {
   const e = ok(); e.scenes[0].text = 'word '.repeat(200);
   const r = lintEpisode(bible, e);

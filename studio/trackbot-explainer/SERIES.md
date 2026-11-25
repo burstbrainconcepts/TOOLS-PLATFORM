@@ -88,3 +88,14 @@ Not covered by any gate yet: clothing intersection, lip-sync agreement, temporal
 `scripts/lib/voice.mjs` runs **Rhubarb Lip Sync** (MIT, CPU) on every voiced line, with the *spoken form* of the text (`spokenForm`: digits as words, brand names split) as the dialogue hint, and stores mouth-shape cues `visemes: [[start, end, A-H|X], ...]` per scene. Install with `models/fetch_rhubarb.sh` (or set `RHUBARB`); without it the old loudness-only mouth is used.
 `src/Scene3D.tsx` (`VIS`, `visemeAt`) maps each shape to our morph targets with a 70 ms smooth transition: A closed, B/C/D increasing jaw, E/F rounded (`purse`, `lipsOut`), G upper lip raised (f/v), H open (l).
 Gate: `node scripts/qa/lipsync-check.mjs <episode.props.json>`: on the hiker ad, 83-100% of loud frames have an open mouth shape in every scene (mean 92%), cue end within 0.05 s of the audio end. Raw correlation (0.2-0.65) is informational only. **This shows the cues are aligned to the audio; it does not prove each shape is phonetically right.** Limits: our face has 14 morph targets, so shapes are approximated (no separate tongue or lower-teeth movement); mouth shapes are subtle at full-body framing.
+
+## Captured motion (new actions from a video, no hand-written animation)
+Tool: VideoIntoBlenderModel (Apache-2.0, MediaPipe, CPU only, no account). About 5 minutes per 10 s of video on 4 cores.
+1. `scripts/mocap/extract.sh my-video.mp4 /tmp/out` (see the header for the one-time setup).
+2. `python scripts/mocap/build-clip.py /tmp/out/skeleton_motion.npz NAME [--start S --end E] [--loop]` writes `src/mocap/NAME.json` and refreshes the registry.
+3. In an episode scene: `"clip": { "name": "NAME", "dir": 1, "floor": true }` (`floor` scrolls the ground at the clip's measured speed; `rate` changes speed). The linter rejects unknown clip names.
+4. Check with `node scripts/qa/gait-probe.mjs --clip NAME`.
+
+Clips included: `steps` (walk and crouch) and `kungfu` (a knee raise and stance), both extracted from the sample videos bundled with the tool.
+
+Honest limits: the `steps` clip has about 16 cm/s mean foot slip (the IK walk has about 4), so a foot-lock pass is still missing. Retargeting ignores bone twist. Fingers and face capture are not mapped yet. The sample videos have no clean walk cycle, run, sit or drink, so those need a filmed clip. Only stills of the kungfu clip were checked, not the motion in video.

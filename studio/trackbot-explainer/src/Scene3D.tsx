@@ -10,6 +10,7 @@ import { ParkSet } from './Park3D';
 import { PHOTO, PhotoFloor, PhotoBackdrop } from './Settings3D';
 import BD from './backdrops.json';
 import { gaitSpeedRig, GAIT } from './rigPose';
+import { CLIPS } from './mocap';
 
 const BDX = BD as Record<string, { yaw: number; horizon: string }>;
 // Gait speed that matches the stride (so the feet do not glide over the ground): mean backward foot speed during stance = 2*L*sin(A) / half-cycle
@@ -145,7 +146,8 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
         const isKicker = act?.type === 'kick' && i === 0;
         const kickK = isKicker && f >= t0 ? (f - t0) / 27 : undefined;                  // the kick takes 0.9 s
         const cheer = act?.type === 'cheer' ? Math.min(1, Math.max(0, (f - t0) / 8)) : 0;
-        const holding = !!scene.hold && talking && !wk && !isKicker;
+        const clipScene = scene.clip && i === 0 ? CLIPS[scene.clip.name] : undefined;
+        const holding = !!scene.hold && talking && !wk && !isKicker && !clipScene;
         const viseme = talking && scene.visemes ? visemeAt(scene.visemes, f / 30) : undefined;
         const emotion = cheer > 0 ? 'happy' : talking ? (scene.emotion ?? 'neutral') : 'happy';
         const scl = (s * (multi ? 0.92 : 1)) / 1.55;
@@ -154,8 +156,8 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
           <React.Fragment key={id}>
             <ContactShadow x={px} w={(wk || isKicker ? 1.5 : 0.95) * scl} d={(wk || isKicker ? 0.5 : 0.55) * scl} />
           <Person3D look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses, body: c.body, model: c.model }}
-            position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={isKicker ? Math.PI / 2 : wk ? wk.dir * Math.PI / 2 : (pointing ? -0.15 : towards * (talking ? 0.1 : 0.32))}
-            pose={{ viseme, ...(isKicker || cheer > 0 ? { head: pf.head * 0.5, nod: cheer > 0 ? -8 : 3, look: 0, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: cheer > 0 ? 0.7 + 0.3 * Math.sin(f / 2) : 0, mouthW: 1.3, brow: cheer > 0 ? 0.8 : 0.2, blink: 1, emotion, breath: Math.sin(ff / 17) * 0.008, kick: kickK !== undefined && kickK <= 1 ? kickK : undefined, cheer, walk: (f - t0) * 0.31 } : wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: holding ? 16 : Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: holding ? 100 : pointing ? 6 : 10 + pf.elbow, elbowL: 10, reachR: holding ? 36 : 0, grip: holding ? 1 : 0,
+            position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={clipScene ? (scene.clip!.dir ?? 0) * Math.PI / 2 : isKicker ? Math.PI / 2 : wk ? wk.dir * Math.PI / 2 : (pointing ? -0.15 : towards * (talking ? 0.1 : 0.32))}
+            pose={{ viseme, ...(clipScene ? { mocap: { clip: clipScene, t: Math.max(0, f / 30 - (scene.clip!.at ?? 0)) * (scene.clip!.rate ?? 1) }, blink: bp < 5 ? 0.15 : 1, emotion, talk: talking ? mouthAt : 0, brow: pf.brow, breath: Math.sin(ff / 17) * 0.008 } : isKicker || cheer > 0 ? { head: pf.head * 0.5, nod: cheer > 0 ? -8 : 3, look: 0, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: cheer > 0 ? 0.7 + 0.3 * Math.sin(f / 2) : 0, mouthW: 1.3, brow: cheer > 0 ? 0.8 : 0.2, blink: 1, emotion, breath: Math.sin(ff / 17) * 0.008, kick: kickK !== undefined && kickK <= 1 ? kickK : undefined, cheer, walk: (f - t0) * 0.31 } : wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: holding ? 16 : Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: holding ? 100 : pointing ? 6 : 10 + pf.elbow, elbowL: 10, reachR: holding ? 36 : 0, grip: holding ? 1 : 0,
               talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }) }} held={holding ? { color: ctx.palette.accent, cap: '#162434' } : undefined} />
           </React.Fragment>
         );
@@ -201,6 +203,9 @@ export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?:
   const photo = PHOTO[setting];
   const lay0 = CAST_LAYOUT[scene.template] ?? {}, walkScl = ((lay0.s ?? 1.55) * ((scene.who?.length ?? 1) > 1 ? 0.92 : 1)) / 1.55;   // same scale People applies
   const horizon = BDX[setting]?.horizon;
+  const ck0 = scene.clip ? CLIPS[scene.clip.name] : undefined;
+  // how the world moves past the character: a gait speed (walk/run) or the speed measured from a captured clip
+  const move = scene.walk ? { dir: scene.walk.dir, speed: scene.walk.speed ?? gaitSpeed(scene.walk.run, walkScl) } : ck0 && scene.clip?.floor ? { dir: scene.clip.dir ?? 1, speed: ck0.floorSpeed * (0.814 / ck0.hipRef) * 1.08 * walkScl * (scene.clip.rate ?? 1) } : undefined;
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       <div style={{ width: rw, height: rh, transform: `scale(${1 / quality})`, transformOrigin: '0 0' }}>
@@ -209,8 +214,8 @@ export const Scene3D: React.FC<{ f: number; scene: TplScene; ctx: Ctx; quality?:
           <Suspense fallback={<Loading />}>
             <Env setting={setting} showBackground={park} debugBg={ctx.debug === 'envbg'} />
             {!park && !photo && <Cyclorama f={f} ctx={ctx} mood={mood} />}
-            {photo && <>{ctx.debug !== 'envbg' && <PhotoBackdrop name={setting} />}<PhotoFloor p={photo} shift={scene.walk ? scene.walk.dir * (scene.walk.speed ?? gaitSpeed(scene.walk.run, walkScl)) * f / 30 : 0} /></>}
-            {park && <ParkSet walk={scene.walk ? { dir: scene.walk.dir, dist: ((scene.walk.speed ?? gaitSpeed(scene.walk.run, walkScl)) * f) / 30 } : undefined} />}
+            {photo && <>{ctx.debug !== 'envbg' && <PhotoBackdrop name={setting} />}<PhotoFloor p={photo} shift={move ? move.dir * move.speed * f / 30 : 0} /></>}
+            {park && <ParkSet walk={move ? { dir: move.dir, dist: (move.speed * f) / 30 } : undefined} />}
             {photo ? (photo.fog && <fog attach="fog" args={[horizon ?? photo.fog[0], 22, 70]} />) : <fog attach="fog" args={park ? ['#bcd4e6', 16, 52] : [mood.bottom, 9, 26]} />}
             {!park && !photo && <Floor mood={mood} setting={setting} />}
             <hemisphereLight args={['#ffffff', '#555566', 0.45]} />

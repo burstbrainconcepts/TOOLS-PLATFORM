@@ -11,6 +11,7 @@ export type TplScene = {
   title?: string; bullets?: string[]; icons?: string[]; labels?: string[]; stat?: { value: string; label: string };
   product?: { src: string; name?: string; tag?: string }; brand?: string; cta?: string;
   walk?: { dir: 1 | -1; speed?: number; run?: boolean };   // 3D only: characters walk in profile (dir = screen direction) while the set scrolls past
+  clip?: { name: string; at?: number; rate?: number; dir?: 1 | -1; floor?: boolean };   // 3D only: the first character performs a captured motion clip (src/mocap); dir = profile direction (omit to face the camera); floor = scroll the floor at the clip's speed
   hold?: boolean;   // 3D only: the speaker holds the product (a bottle) in the hand instead of pointing
   action?: { type: 'kick' | 'cheer'; at?: number };   // 3D only: the first character kicks a ball (profile view) or celebrates, starting `at` seconds in
   frames: number; mouth: number[]; visemes?: [number, number, string][];   // mouth-shape cues from Rhubarb: [start s, end s, A-H or X]

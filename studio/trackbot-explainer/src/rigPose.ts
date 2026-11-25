@@ -24,6 +24,7 @@ export type Pose3D = {
   kick?: number;      // 0..1 progress of a kick with the +x-side leg (undefined = none)
   cheer?: number;     // 0..1 arms-up celebration
   grip?: number;      // 0..1 closes the +x hand around a held object
+  mocap?: { clip: MocapClip; t: number };   // play a captured clip: seconds into the clip (looped if the clip loops)
   viseme?: { open: number; purse: number; smile: number; upper: number; out: number };   // phoneme mouth shape (overrides the loudness-driven mouth)
 };
 
@@ -42,6 +43,7 @@ export type Rig = {
   rootQ: THREE.Quaternion;                     // world rotation of the bone hierarchy's parent at rest (the rig frame)
   suf: { p: string; n: string };               // which bone suffix (_l / _r) lies on the +x side
   armDir: Record<string, THREE.Vector3>; legDir: Record<string, THREE.Vector3>;   // rest directions (world), measured from the bones
+  segDir: Record<string, THREE.Vector3>;   // rest direction of each body segment (bone head -> child head), for motion-capture retargeting
   leg: Record<string, { calfDir: THREE.Vector3; footDir: THREE.Vector3; hip: THREE.Vector3; l1: number; l2: number; ankleY: number }>;   // rest leg geometry for the gait IK
   face: Record<string, THREE.Object3D>; brow0: Record<string, THREE.Vector3>; brows: THREE.Object3D[]; brows0: THREE.Vector3[];
   morph?: { mesh: THREE.Mesh; idx: Record<string, number> };
@@ -100,6 +102,12 @@ export const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
     const th = pos(`thigh${suf[s]}`), ca = pos(`calf${suf[s]}`), fo = pos(`foot${suf[s]}`), ba = pos(`ball${suf[s]}`);
     leg[s] = { calfDir: dirOf(`calf${suf[s]}`, `foot${suf[s]}`), footDir: ba.clone().sub(fo).normalize(), hip: th, l1: th.distanceTo(ca), l2: ca.distanceTo(fo), ankleY: fo.y };
   }
+  // body segments for retargeting captured motion: our bone -> the child bone that gives its direction
+  const CHILD: Record<string, string> = { pelvis: 'spine_01', spine_01: 'spine_02', spine_02: 'spine_03', spine_03: 'neck_01', neck_01: 'head' };
+  for (const sd of ['p', 'n'] as const) { const x = suf[sd]; Object.assign(CHILD, { [`clavicle${x}`]: `upperarm${x}`, [`upperarm${x}`]: `lowerarm${x}`, [`lowerarm${x}`]: `hand${x}`, [`hand${x}`]: `middle_01${x}`, [`thigh${x}`]: `calf${x}`, [`calf${x}`]: `foot${x}`, [`foot${x}`]: `ball${x}` }); }
+  const segDir: Record<string, THREE.Vector3> = {};
+  for (const [b, c] of Object.entries(CHILD)) if (bones[b] && bones[c]) segDir[b] = dirOf(b, c);
+  segDir.head = segDir.neck_01.clone();
   const face: Record<string, THREE.Object3D> = {}, brow0: Record<string, THREE.Vector3> = {};
   for (const n of FACE_PARTS) if (byName[n]) face[n] = byName[n];
   for (const n of ['brow_p', 'brow_n']) if (face[n]) brow0[n] = face[n].position.clone();
@@ -107,13 +115,47 @@ export const buildRig = (scene: THREE.Object3D, look: Look3D): Rig => {
   const hs = look.hairStyle ?? 'short';
   for (const n of ['hair_short', 'hair_helmet', 'hair_puff']) if (face[n]) face[n].visible = n === `hair_${hs}`;
   for (const n of ['glass_n', 'glass_p', 'glass_bridge', 'glass_temple_n', 'glass_temple_p']) if (face[n]) face[n].visible = !!look.glasses;
-  return { root, order, bones, parentOf, restLocal, restWorld, leg, restPos: bones.pelvis.position.clone(), rootQ: bones[order[0]].parent!.getWorldQuaternion(new THREE.Quaternion()), suf, armDir, legDir, face, brow0, brows, brows0: brows.map((b) => b.position.clone()), morph };
+  return { root, order, bones, parentOf, restLocal, restWorld, leg, segDir, restPos: bones.pelvis.position.clone(), rootQ: bones[order[0]].parent!.getWorldQuaternion(new THREE.Quaternion()), suf, armDir, legDir, face, brow0, brows, brows0: brows.map((b) => b.position.clone()), morph };
 };
 
 // Walk and run are defined by FOOT PATHS, not by joint sine waves: in stance the foot moves backward in a straight line at the floor's speed
 // (so it does not slide), in swing it lifts and arcs forward. A two-bone IK solver (thigh + calf, in the sagittal plane) then finds the joint angles.
 // S = half step length in rig metres, cad = gait cycles per second, duty = fraction of the cycle a foot is on the ground, lift = swing foot height.
 export const GAIT = { walk: { S: 0.26, cad: 1.15, duty: 0.5, lift: 0.07 }, run: { S: 0.38, cad: 1.4, duty: 0.4, lift: 0.16 } };
+// ---- captured motion (from video, via VideoIntoBlenderModel + scripts/mocap/build-clip.py) ----
+export type MocapClip = { name: string; fps: number; loop: boolean; joints: string[]; hipRef: number; floorSpeed: number; hip: number[]; yaw: number[]; pos: number[][][]; source?: string };
+// our bone -> [from joint, to joint] of the captured skeleton ({s} = left/right; our +x side is the character's left)
+const MOCAP_SEG: Record<string, [string, string]> = {
+  pelvis: ['pelvis', 'spine1'], spine_01: ['spine1', 'spine2'], spine_02: ['spine2', 'spine3'], spine_03: ['spine3', 'neck'], neck_01: ['neck', 'head'], head: ['neck', 'head'],
+};
+for (const [sd, m] of [['p', 'left'], ['n', 'right']] as const) {
+  const x = sd === 'p' ? 'P' : 'N';
+  Object.assign(MOCAP_SEG, { [`clavicle@${x}`]: [`${m}_collar`, `${m}_shoulder`], [`upperarm@${x}`]: [`${m}_shoulder`, `${m}_elbow`], [`lowerarm@${x}`]: [`${m}_elbow`, `${m}_wrist`], [`hand@${x}`]: [`${m}_wrist`, `${m}_hand`],
+    [`thigh@${x}`]: [`${m}_hip`, `${m}_knee`], [`calf@${x}`]: [`${m}_knee`, `${m}_ankle`], [`foot@${x}`]: [`${m}_ankle`, `${m}_foot`] });
+}
+const mocapFrame = (clip: MocapClip, t: number) => {
+  const n = clip.pos.length, f = t * clip.fps;
+  const i0 = clip.loop ? ((Math.floor(f) % n) + n) % n : Math.min(n - 1, Math.max(0, Math.floor(f))), i1 = clip.loop ? (i0 + 1) % n : Math.min(n - 1, i0 + 1), k = f - Math.floor(f);
+  return { i0, i1, k: clip.loop || (f >= 0 && f < n - 1) ? k : 0 };
+};
+// Retarget by DIRECTION: each of our bones is turned to point the way the captured segment points (the same method used for arms and legs).
+// Twist about the bone axis is not transferred. The whole body is lowered/raised by the captured hip height relative to standing, scaled to our proportions.
+const mocapDeltas = (rig: Rig, clip: MocapClip, t: number) => {
+  const { i0, i1, k } = mocapFrame(clip, t), ix: Record<string, number> = {}; clip.joints.forEach((j, i) => { ix[j] = i; });
+  const pt = (j: string) => new THREE.Vector3().fromArray(clip.pos[i0][ix[j]]).lerp(new THREE.Vector3().fromArray(clip.pos[i1][ix[j]]), k);
+  const d: Record<string, THREE.Quaternion> = {};
+  for (const [key, [a, b]] of Object.entries(MOCAP_SEG)) {
+    const side = key.includes('@') ? key.split('@')[1] : null, base = key.split('@')[0];
+    const bone = side ? `${base}${rig.suf[side.toLowerCase() as 'p' | 'n']}` : base;
+    if (!rig.segDir[bone]) continue;
+    const dir = pt(b).sub(pt(a)); if (dir.lengthSq() < 1e-8) continue;
+    d[bone] = new THREE.Quaternion().setFromUnitVectors(rig.segDir[bone], dir.normalize());
+  }
+  const hip = clip.hip[i0] + (clip.hip[i1] - clip.hip[i0]) * k;
+  const scale = rig.leg.p.hip.y / clip.hipRef;                    // our standing hip height / the actor's standing hip height
+  return { d, ry: (hip - clip.hipRef) * scale };
+};
+
 export const gaitSpeedRig = (run?: boolean) => { const g = run ? GAIT.run : GAIT.walk; return (2 * g.S) / (g.duty / g.cad); };   // floor speed that keeps planted feet still (rig metres/s)
 const frac = (x: number) => x - Math.floor(x);
 type Gait = { ry: number; S: number; p: { fz: number; fy: number; u: number }; n: { fz: number; fy: number; u: number }; duty: number };
@@ -198,6 +240,8 @@ export const applyPose = (rig: Rig, p: Pose3D) => {
     d[`calf${rig.suf[s]}`] = mul(th, leg, q('x', knee + Math.max(0, sg * step) * 1.2));
   }
 
+  let mocapRy: number | null = null;
+  if (p.mocap) { const m = mocapDeltas(rig, p.mocap.clip, p.mocap.t); Object.assign(d, m.d); mocapRy = m.ry; }
   const curW: Record<string, THREE.Quaternion> = {};
   for (const b of rig.order) {
     const par = rig.parentOf[b];
@@ -211,7 +255,7 @@ export const applyPose = (rig: Rig, p: Pose3D) => {
     }
   }
   rig.bones.pelvis.position.set(rig.restPos.x + step * 0.016, rig.restPos.y, rig.restPos.z);
-  rig.root.position.y = gait ? gait.ry : 0;
+  rig.root.position.y = mocapRy ?? (gait ? gait.ry : 0);
   rig.bones.spine_03.scale.set(1 + n(p.breath), 1 + n(p.breath) * 1.2, 1);
   rig.bones.head.scale.setScalar(1.1);       // slightly large head reads better on a phone
 

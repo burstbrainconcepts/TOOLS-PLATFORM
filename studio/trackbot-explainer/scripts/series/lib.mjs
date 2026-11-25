@@ -19,7 +19,7 @@ const need = {
 };
 
 /** Validate an episode against its series bible. Returns { errors: string[], warnings: string[], seconds }. */
-export function lintEpisode(bible, ep) {
+export function lintEpisode(bible, ep, opts = {}) {   // opts.clips: names of available captured-motion clips (src/mocap/*.json)
   const errors = [], warnings = [];
   const rules = { maxWordsPerScene: 24, targetSeconds: [20, 50], hookWithinSeconds: 4, maxSameTemplateInRow: 2, minTemplateVariety: 3, bannedPhrases: [], requireCta: true, ...(bible.rules ?? {}) };
   const chars = bible.characters ?? {};
@@ -37,6 +37,7 @@ export function lintEpisode(bible, ep) {
     for (const id of who) if (!chars[id]) errors.push(`${at}: unknown character "${id}" (bible has: ${Object.keys(chars).join(', ')})`);
     if (s.speaker && !who.includes(s.speaker)) errors.push(`${at}: speaker "${s.speaker}" is not in "who"`);
     if (s.setting && !SETTINGS.includes(s.setting)) errors.push(`${at}: unknown setting "${s.setting}" (known: ${SETTINGS.join(', ')})`);
+    if (s.clip && opts.clips && !opts.clips.includes(s.clip.name)) errors.push(`${at}: unknown motion clip "${s.clip.name}" (available: ${opts.clips.join(', ') || 'none'})`);
     if (s.emotion && !EMOTIONS.includes(s.emotion)) errors.push(`${at}: unknown emotion "${s.emotion}"`);
     for (const ic of s.icons ?? []) if (!ICONS.includes(ic)) errors.push(`${at}: unknown icon "${ic}" (known: ${ICONS.join(', ')})`);
     if ((s.bullets?.length ?? 0) > 4) errors.push(`${at}: at most 4 bullets`);

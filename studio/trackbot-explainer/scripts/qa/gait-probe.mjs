@@ -9,7 +9,8 @@ import { pathToFileURL } from 'node:url';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const rawArgs = process.argv.slice(2); const ci = rawArgs.indexOf('--clip');
+const args = rawArgs.filter((a, i) => !a.startsWith('--') && !(ci >= 0 && i === ci + 1));
 const src = args[0] ?? 'src/rigPose.ts', glb = args[1] ?? 'public/models/human_ada.glb', OLD = process.argv.includes('--old');
 mkdirSync('out/qa', { recursive: true });
 await build({ entryPoints: [src], bundle: true, format: 'esm', platform: 'node', outfile: 'out/qa/rigPose.bundle.mjs', external: ['three'], logLevel: 'error', loader: { '.ts': 'ts' } });
@@ -29,6 +30,7 @@ const rig = R.buildRig(gltf.scene, { skin: '#8D5524', shirt: '#2B6CFF' });
 const bone = (n) => rig.bones[n];
 const sufP = rig.suf.p, sufN = rig.suf.n;
 const FPS = 30, SECS = 8;
+const CLIP = process.argv.includes('--clip') ? JSON.parse(readFileSync(`src/mocap/${process.argv[process.argv.indexOf('--clip') + 1]}.json`, 'utf8')) : null;
 if (process.argv.includes('--debug')) {
   R.applyPose(rig, { walk: 0.0, stride: 1 }); rig.root.updateMatrixWorld(true);
   const P = (n) => rig.bones[n].getWorldPosition(new THREE.Vector3()).toArray().map((v) => +v.toFixed(3));
@@ -38,6 +40,24 @@ if (process.argv.includes('--debug')) {
   console.error('posed other: thigh', P('thigh' + sufN), 'calf', P('calf' + sufN), 'foot', P('foot' + sufN));
 }
 const results = {};
+if (CLIP) {
+  const secs = CLIP.pos.length / CLIP.fps, rows = [];
+  for (let f = 0; f < Math.floor(secs * FPS); f++) {
+    R.applyPose(rig, { mocap: { clip: CLIP, t: f / FPS }, armR: 12, armL: 12 }); rig.root.updateMatrixWorld(true);
+    const P = (n) => bone(n).getWorldPosition(new THREE.Vector3());
+    rows.push({ p: P('foot' + sufP), n: P('foot' + sufN) });
+  }
+  const floorSpeed = CLIP.floorSpeed * (rig.leg.p.hip.y / CLIP.hipRef);
+  const allY = rows.flatMap((r) => [r.p.y, r.n.y]).sort((x, y) => x - y), groundY = allY[Math.floor(allY.length * 0.05)];
+  const slips = []; let sink = 0;
+  for (const side of ['p', 'n']) for (let i = 1; i < rows.length; i++) {
+    const a = rows[i - 1][side], b = rows[i][side];
+    if (Math.max(a.y, b.y) < groundY + 0.004) { const vz = (b.z - a.z) * FPS; slips.push(Math.abs(vz + floorSpeed)); sink = Math.max(sink, groundY - b.y); }
+  }
+  const mean = slips.reduce((x, y) => x + y, 0) / slips.length, sorted = [...slips].sort((x, y) => x - y), p95 = sorted[Math.floor(sorted.length * 0.95)];
+  console.log(JSON.stringify({ clip: CLIP.name, seconds: +secs.toFixed(1), floorSpeedRigMs: +floorSpeed.toFixed(2), contactSamples: slips.length, meanSlipCmS: +(mean * 100).toFixed(1), p95SlipCmS: +(p95 * 100).toFixed(1), meanSlipPctOfFloor: floorSpeed > 0.05 ? +((mean / floorSpeed) * 100).toFixed(0) : null, maxSinkCm: +(sink * 100).toFixed(1), groundY: +groundY.toFixed(3) }, null, 1));
+  process.exit(0);
+}
 for (const mode of ['walk', 'run']) {
   const run = mode === 'run';
   const cad = run ? (R.GAIT?.run.cad ?? 1.35) : (R.GAIT?.walk.cad ?? 0.95);

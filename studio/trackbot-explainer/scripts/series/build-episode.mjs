@@ -13,7 +13,9 @@ if (!biblePath || !epPath) { console.error('usage: build-episode.mjs <bible.json
 const bible = JSON.parse(readFileSync(biblePath, 'utf8')), ep = JSON.parse(readFileSync(epPath, 'utf8'));
 
 const be = lintBible(bible);
-const { errors, warnings, seconds } = lintEpisode(bible, ep);
+import { readdirSync } from 'node:fs';
+const clips = existsSync('src/mocap') ? readdirSync('src/mocap').filter((f) => f.endsWith('.json')).map((f) => f.replace('.json', '')) : [];
+const { errors, warnings, seconds } = lintEpisode(bible, ep, { clips });
 for (const m of [...be, ...errors]) console.error(`ERROR  ${m}`);
 for (const m of warnings) console.warn(`warn   ${m}`);
 if (be.length || errors.length) process.exit(1);
