@@ -24,14 +24,14 @@ export const Person3D: React.FC<{ look: Look3D; pose?: Pose3D; position?: [numbe
     rig.root.updateMatrixWorld(true);
     const hand = rig.bones[`hand${rig.suf.p}`].getWorldPosition(new THREE.Vector3());
     g.parent!.updateMatrixWorld(true); g.parent!.worldToLocal(hand);
-    g.position.set(hand.x, hand.y + 0.09, hand.z + 0.045);
+    g.position.set(hand.x, hand.y + 0.1, hand.z + 0.05);
   };
   useFrame(() => { applyPose(rig, poseRef.current); placeHeld(); });
   return <group position={[position[0], position[1] + bounce, position[2]]} scale={scale * 1.08} rotation={[0, rotY, 0]}><primitive object={rig.root} />
     {held && <group ref={holdRef}>
-      <mesh castShadow><cylinderGeometry args={[0.036, 0.036, 0.2, 24]} /><meshStandardMaterial color={held.color} roughness={0.35} metalness={0.1} /></mesh>
-      <mesh position={[0, 0.115, 0]} castShadow><cylinderGeometry args={[0.03, 0.034, 0.03, 24]} /><meshStandardMaterial color={held.cap} roughness={0.5} /></mesh>
-      <mesh position={[0, 0.145, 0]}><torusGeometry args={[0.014, 0.004, 8, 20]} /><meshStandardMaterial color={held.cap} /></mesh>
+      <mesh castShadow><cylinderGeometry args={[0.05, 0.05, 0.28, 28]} /><meshStandardMaterial color={held.color} roughness={0.35} metalness={0.1} /></mesh>
+      <mesh position={[0, 0.16, 0]} castShadow><cylinderGeometry args={[0.042, 0.048, 0.04, 24]} /><meshStandardMaterial color={held.cap} roughness={0.5} /></mesh>
+      <mesh position={[0, 0.2, 0]}><torusGeometry args={[0.02, 0.005, 8, 20]} /><meshStandardMaterial color={held.cap} /></mesh>
     </group>}
   </group>;
 };

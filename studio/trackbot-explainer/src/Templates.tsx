@@ -137,7 +137,7 @@ const TitlePill: React.FC<{ scene: TplScene; ctx: Ctx; f: number; y?: number; si
 // Where each template puts its cast (local 1040x980 layout coordinates). Mirrors the <Cast .../> calls below; the 3D stage reads it.
 export const CAST_LAYOUT: Record<string, { y?: number; s?: number; xs?: number[]; point?: boolean }> = {
   talk: {}, hook: { s: 2.0, y: 940 }, board: { xs: [215], s: 1.5, point: true }, flow: { xs: [235], s: 1.3 },
-  stat: { s: 1.4 }, product: { xs: [210], s: 1.45, point: true }, outro: { s: 1.5 },
+  stat: { s: 1.4 }, product: { xs: [235], s: 1.75, point: true }, outro: { s: 1.5 },
 };
 
 // ---------- templates ----------
