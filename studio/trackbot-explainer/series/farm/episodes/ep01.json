@@ -1,0 +1,72 @@
+{
+ "id": "farm-demo",
+ "title": "Farm demo",
+ "scenes": [
+  {
+   "template": "hook",
+   "who": [
+    "farmer"
+   ],
+   "setting": "farm",
+   "ara": {
+    "clip": "Walk",
+    "dir": 1,
+    "floor": 1.4
+   },
+   "text": "Early morning on the farm.",
+   "title": "Planting day"
+  },
+  {
+   "template": "talk",
+   "who": [
+    "farmer"
+   ],
+   "setting": "farm",
+   "ara": {
+    "clip": "Run",
+    "dir": 1,
+    "floor": 3.4
+   },
+   "text": "I run to the seedlings."
+  },
+  {
+   "template": "talk",
+   "who": [
+    "farmer"
+   ],
+   "setting": "farm",
+   "ara": {
+    "clip": "Pick up (ground)",
+    "dir": 1,
+    "loop": false
+   },
+   "text": "I pick up a seedling."
+  },
+  {
+   "template": "talk",
+   "who": [
+    "farmer"
+   ],
+   "setting": "farm",
+   "ara": {
+    "clip": "Carry walk",
+    "dir": 1,
+    "floor": 1.2
+   },
+   "text": "And carry it to the bed."
+  },
+  {
+   "template": "outro",
+   "who": [
+    "farmer"
+   ],
+   "setting": "farm",
+   "ara": {
+    "clip": "Wave",
+    "dir": 0
+   },
+   "text": "Thanks for watching.",
+   "emotion": "happy"
+  }
+ ]
+}

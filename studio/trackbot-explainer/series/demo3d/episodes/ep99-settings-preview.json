@@ -1,0 +1,152 @@
+{
+  "id": "demo3d-settings",
+  "cast": [
+    "ada",
+    "mel"
+  ],
+  "scenes": [
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "urban",
+      "emotion": "happy",
+      "text": "Setting urban."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "plaza",
+      "emotion": "happy",
+      "text": "Setting plaza."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "alley",
+      "emotion": "happy",
+      "text": "Setting alley."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "market",
+      "emotion": "happy",
+      "text": "Setting market."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "cafe",
+      "emotion": "happy",
+      "text": "Setting cafe."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "shop",
+      "emotion": "happy",
+      "text": "Setting shop."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "office",
+      "emotion": "happy",
+      "text": "Setting office."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "hall",
+      "emotion": "happy",
+      "text": "Setting hall."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "gym",
+      "emotion": "happy",
+      "text": "Setting gym."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "field",
+      "emotion": "happy",
+      "text": "Setting field."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "farm",
+      "emotion": "happy",
+      "text": "Setting farm."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "orchard",
+      "emotion": "happy",
+      "text": "Setting orchard."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "woods",
+      "emotion": "happy",
+      "text": "Setting woods."
+    }
+  ]
+}

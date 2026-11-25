@@ -1,0 +1,12 @@
+{
+  "id": "demo-ep02-yawn",
+  "cast": ["ada", "mel"],
+  "scenes": [
+    { "template": "hook", "who": ["ada"], "emotion": "worried", "title": "Why do we yawn?", "text": "Why do we yawn when we are tired?" },
+    { "template": "talk", "who": ["mel", "ada"], "speaker": "mel", "setting": "room", "emotion": "neutral", "text": "I thought it was because we need more oxygen." },
+    { "template": "board", "who": ["ada"], "title": "Scientists are not sure", "bullets": ["Oxygen idea does not hold up", "Maybe it cools the brain", "Maybe it wakes us up"], "text": "That old idea does not hold up. Scientists think yawning may cool the brain or help us wake up." },
+    { "template": "flow", "who": ["ada"], "icons": ["heart", "bolt", "check"], "labels": ["Tired", "Yawn", "Alert"], "text": "You feel tired, you yawn, and you feel a little more alert." },
+    { "template": "talk", "who": ["ada", "mel"], "speaker": "ada", "setting": "street", "emotion": "happy", "text": "And yes, yawns are catchy. Did you yawn just now?" },
+    { "template": "outro", "who": ["ada", "mel"], "text": "Follow for a new why every day." }
+  ]
+}

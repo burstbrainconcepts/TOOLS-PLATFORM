@@ -1,0 +1,58 @@
+{
+  "id": "football-ep01",
+  "cast": [
+    "ada",
+    "mel"
+  ],
+  "scenes": [
+    {
+      "template": "hook",
+      "who": [
+        "mel"
+      ],
+      "setting": "stadium",
+      "emotion": "surprised",
+      "title": "Why does a free kick bend?",
+      "action": {
+        "type": "kick",
+        "at": 1.2
+      },
+      "text": "Why does a free kick bend like that?"
+    },
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "stadium",
+      "emotion": "happy",
+      "text": "Spin. The ball spins, the air gets dragged around it, and that pushes it sideways."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "mel",
+        "ada"
+      ],
+      "speaker": "mel",
+      "setting": "stadium",
+      "emotion": "happy",
+      "action": {
+        "type": "cheer",
+        "at": 0.5
+      },
+      "text": "So that is why it curls into the top corner. Goal!"
+    },
+    {
+      "template": "outro",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "setting": "stadium",
+      "text": "Want more? Comment skills."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "demo3d-walk",
+  "cast": [
+    "ada",
+    "mel"
+  ],
+  "scenes": [
+    {
+      "template": "talk",
+      "who": [
+        "ada",
+        "mel"
+      ],
+      "speaker": "ada",
+      "setting": "park",
+      "emotion": "happy",
+      "walk": {
+        "dir": 1
+      },
+      "text": "Come on Mel, the trail is beautiful today and the view is worth it."
+    },
+    {
+      "template": "talk",
+      "who": [
+        "mel",
+        "ada"
+      ],
+      "speaker": "mel",
+      "setting": "park",
+      "emotion": "happy",
+      "walk": {
+        "dir": -1,
+        "run": true
+      },
+      "text": "Race you to the top, and no cheating this time."
+    }
+  ]
+}

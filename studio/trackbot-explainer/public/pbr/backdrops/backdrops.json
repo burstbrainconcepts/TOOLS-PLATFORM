@@ -1,0 +1,67 @@
+{
+ "urban": {
+  "hdri": "canary_wharf",
+  "yaw": 190,
+  "horizon": "#282d33"
+ },
+ "plaza": {
+  "hdri": "piazza_bologni",
+  "yaw": 120,
+  "horizon": "#6c686a"
+ },
+ "alley": {
+  "hdri": "braustuble_alley",
+  "yaw": 240,
+  "horizon": "#2c2613"
+ },
+ "market": {
+  "hdri": "leadenhall_market",
+  "yaw": 340,
+  "horizon": "#6c4b4c"
+ },
+ "cafe": {
+  "hdri": "comfy_cafe",
+  "yaw": 40,
+  "horizon": "#888581"
+ },
+ "shop": {
+  "hdri": "decor_shop",
+  "yaw": 90,
+  "horizon": "#adbfc8"
+ },
+ "office": {
+  "hdri": "cinema_lobby",
+  "yaw": 230,
+  "horizon": "#617c77"
+ },
+ "hall": {
+  "hdri": "entrance_hall",
+  "yaw": 250,
+  "horizon": "#9a9c83"
+ },
+ "gym": {
+  "hdri": "crossfit_gym",
+  "yaw": 60,
+  "horizon": "#c1b6b3"
+ },
+ "field": {
+  "hdri": "belfast_open_field",
+  "yaw": 290,
+  "horizon": "#655936"
+ },
+ "farm": {
+  "hdri": "belfast_farmhouse",
+  "yaw": 180,
+  "horizon": "#979485"
+ },
+ "orchard": {
+  "hdri": "citrus_orchard_road",
+  "yaw": 20,
+  "horizon": "#24292c"
+ },
+ "woods": {
+  "hdri": "epping_forest_01",
+  "yaw": 330,
+  "horizon": "#555c2a"
+ }
+}

@@ -1,0 +1,78 @@
+name: Render explainer video (draft)
+
+# Manual only. Produces a DRAFT mp4 as a downloadable run artifact. Nothing is published.
+# NOTE: this repo is public, so artifacts are visible to anyone who can see the repo.
+on:
+  workflow_dispatch:
+    inputs:
+      video:
+        description: Which video
+        type: choice
+        options: [TrackbotExplainer, TrackbotExplainer3D, MoneyExplainer]
+        default: TrackbotExplainer
+      character:
+        description: Host character (also picks the voice)
+        type: choice
+        options: [ada, tunde, bolt]
+        default: ada
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: studio/trackbot-explainer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: studio/trackbot-explainer/package-lock.json
+
+      - name: System packages
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Piper (neural voice)
+        run: pip install piper-tts
+
+      - name: Download the character's voice
+        run: |
+          set -euo pipefail
+          case "${{ inputs.character }}" in
+            ada)   V=en_US-lessac-medium;  P=en/en_US/lessac/medium ;;
+            tunde) V=en_US-ryan-high;      P=en/en_US/ryan/high ;;
+            bolt)  V=en_GB-alan-medium;    P=en/en_GB/alan/medium ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/voices"
+          for ext in onnx onnx.json; do
+            curl -fsSL -o "$RUNNER_TEMP/voices/$V.$ext" "https://huggingface.co/rhasspy/piper-voices/resolve/main/$P/$V.$ext"
+          done
+          echo "PIPER_MODEL=$RUNNER_TEMP/voices/$V.onnx" >> "$GITHUB_ENV"
+
+      - run: npm ci
+
+      - name: Build voice and mouth data
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.video }}" = "MoneyExplainer" ]; then
+            node scripts/build-voice.mjs script-money.json src/data-money.json m
+          else
+            node scripts/build-voice.mjs
+          fi
+
+      - name: Render
+        run: npx remotion render src/index.ts "${{ inputs.video }}" out/video.mp4 --props='{"character":"${{ inputs.character }}"}' --concurrency=2
+
+      - name: Automated quality check (fails the run on hard failures)
+        run: node scripts/qa.mjs out/video.mp4
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: draft-${{ inputs.video }}-${{ inputs.character }}
+          path: studio/trackbot-explainer/out/video.mp4
+          retention-days: 3
