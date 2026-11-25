@@ -100,6 +100,27 @@ const CameraRig: React.FC = () => {
   return null;
 };
 
+// Rhubarb mouth shapes -> weights on our morph targets (mouthOpen = jaw, purse = lips rounded/pursed, smile = corner puller, upperLip = lip raised for F/V, lipsOut = lips pushed out)
+const VIS: Record<string, { open: number; purse: number; smile: number; upper: number; out: number }> = {
+  X: { open: 0, purse: 0, smile: 0, upper: 0, out: 0 },        // rest
+  A: { open: 0, purse: 0.12, smile: 0, upper: 0, out: 0 },     // P B M: lips pressed
+  B: { open: 0.2, purse: 0, smile: 0.1, upper: 0, out: 0 },    // K S T: teeth nearly together
+  C: { open: 0.55, purse: 0, smile: 0.12, upper: 0, out: 0 },  // EH AE: open
+  D: { open: 0.95, purse: 0, smile: 0.05, upper: 0, out: 0 },  // AA: wide open
+  E: { open: 0.45, purse: 0.55, smile: 0, upper: 0, out: 0.2 }, // AO ER: rounded
+  F: { open: 0.2, purse: 0.9, smile: 0, upper: 0, out: 0.45 },  // UW OW W: puckered
+  G: { open: 0.22, purse: 0, smile: 0, upper: 0.65, out: 0 },   // F V: upper teeth on lower lip
+  H: { open: 0.42, purse: 0, smile: 0.08, upper: 0, out: 0 },   // L: tongue up, mouth open
+};
+const visemeAt = (cues: [number, number, string][], t: number) => {
+  let i = cues.findIndex((c) => t >= c[0] && t < c[1]);
+  if (i < 0) return VIS.X;
+  const cur = VIS[cues[i][2]] ?? VIS.X, prev = i > 0 ? VIS[cues[i - 1][2]] ?? VIS.X : VIS.X;
+  const k = Math.min(1, Math.max(0, (t - cues[i][0]) / 0.07)), e = k * k * (3 - 2 * k);     // 70 ms transition into each shape
+  const mix = (a: number, b: number) => a + (b - a) * e;
+  return { open: mix(prev.open, cur.open), purse: mix(prev.purse, cur.purse), smile: mix(prev.smile, cur.smile), upper: mix(prev.upper, cur.upper), out: mix(prev.out, cur.out) };
+};
+
 const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, ctx }) => {
   const who = scene.who?.length ? scene.who : [Object.keys(ctx.chars)[0]];
   const speaker = scene.speaker ?? who[0];
@@ -125,6 +146,7 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
         const kickK = isKicker && f >= t0 ? (f - t0) / 27 : undefined;                  // the kick takes 0.9 s
         const cheer = act?.type === 'cheer' ? Math.min(1, Math.max(0, (f - t0) / 8)) : 0;
         const holding = !!scene.hold && talking && !wk && !isKicker;
+        const viseme = talking && scene.visemes ? visemeAt(scene.visemes, f / 30) : undefined;
         const emotion = cheer > 0 ? 'happy' : talking ? (scene.emotion ?? 'neutral') : 'happy';
         const scl = (s * (multi ? 0.92 : 1)) / 1.55;
         const px = screenToWorldX(xs[i]);
@@ -133,8 +155,8 @@ const People: React.FC<{ f: number; scene: TplScene; ctx: Ctx }> = ({ f, scene, 
             <ContactShadow x={px} w={(wk || isKicker ? 1.5 : 0.95) * scl} d={(wk || isKicker ? 0.5 : 0.55) * scl} />
           <Person3D look={{ skin: c.skin, hair: c.hair, hairStyle: c.hairStyle, shirt: c.shirt, pants: c.pants, shoe: c.shoe, glasses: c.glasses, body: c.body, model: c.model }}
             position={[screenToWorldX(xs[i]), 0, 0]} scale={scl} rotY={isKicker ? Math.PI / 2 : wk ? wk.dir * Math.PI / 2 : (pointing ? -0.15 : towards * (talking ? 0.1 : 0.32))}
-            pose={isKicker || cheer > 0 ? { head: pf.head * 0.5, nod: cheer > 0 ? -8 : 3, look: 0, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: cheer > 0 ? 0.7 + 0.3 * Math.sin(f / 2) : 0, mouthW: 1.3, brow: cheer > 0 ? 0.8 : 0.2, blink: 1, emotion, breath: Math.sin(ff / 17) * 0.008, kick: kickK !== undefined && kickK <= 1 ? kickK : undefined, cheer, walk: (f - t0) * 0.31 } : wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: holding ? 16 : Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: holding ? 100 : pointing ? 6 : 10 + pf.elbow, elbowL: 10, reachR: holding ? 36 : 0, grip: holding ? 1 : 0,
-              talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }} held={holding ? { color: ctx.palette.accent, cap: '#162434' } : undefined} />
+            pose={{ viseme, ...(isKicker || cheer > 0 ? { head: pf.head * 0.5, nod: cheer > 0 ? -8 : 3, look: 0, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: cheer > 0 ? 0.7 + 0.3 * Math.sin(f / 2) : 0, mouthW: 1.3, brow: cheer > 0 ? 0.8 : 0.2, blink: 1, emotion, breath: Math.sin(ff / 17) * 0.008, kick: kickK !== undefined && kickK <= 1 ? kickK : undefined, cheer, walk: (f - t0) * 0.31 } : wk ? { head: pf.head * 0.4, nod: 2, look: wk.dir * 0.1, lean: 0, armR: 12, armL: 12, elbowR: 12, elbowL: 12, talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: 0, blink: bp < 5 ? 0.15 : 1, emotion: talking ? (scene.emotion ?? 'happy') : 'happy', breath: Math.sin(ff / 17) * 0.008, walk: 2 * Math.PI * cad * (f / 30) + i * 0.35, stride: wk.run ? 1.5 : 1 } : { head: pf.head, nod: pf.env * 4 + (talking ? 0 : 1.5 * Math.sin(ff / 33)), look: pointing ? 0.6 : pf.look, lean: pf.lean, armR: holding ? 16 : Math.min(armR, 100), armL: 9 + (talking ? 0 : 3), elbowR: holding ? 100 : pointing ? 6 : 10 + pf.elbow, elbowL: 10, reachR: holding ? 36 : 0, grip: holding ? 1 : 0,
+              talk: talking ? mouthAt : 0, mouthW: pf.mouthW, brow: pf.brow, blink: bp < 5 ? 0.15 : 1, emotion, breath: Math.sin(ff / 17) * 0.008, step: Math.sin(ff / 47 + seed) }) }} held={holding ? { color: ctx.palette.accent, cap: '#162434' } : undefined} />
           </React.Fragment>
         );
       })}

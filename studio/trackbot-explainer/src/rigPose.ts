@@ -24,6 +24,7 @@ export type Pose3D = {
   kick?: number;      // 0..1 progress of a kick with the +x-side leg (undefined = none)
   cheer?: number;     // 0..1 arms-up celebration
   grip?: number;      // 0..1 closes the +x hand around a held object
+  viseme?: { open: number; purse: number; smile: number; upper: number; out: number };   // phoneme mouth shape (overrides the loudness-driven mouth)
 };
 
 const D = Math.PI / 180, D2R = D;
@@ -225,10 +226,18 @@ export const applyPose = (rig: Rig, p: Pose3D) => {
       set(`blink_${s}`, 1 - ink);
       set(`browUp_${s}`, Math.max(0, brow)); set(`browDown_${s}`, Math.max(0, -brow) + (worried ? 0.1 : 0)); set(`browInner_${s}`, worried ? 0.8 : 0);
     }
-    set('mouthOpen', surprised ? 0.7 : talk * 0.95);
-    set('smile', (happy ? 0.75 : worried ? 0 : 0.28) + Math.max(0, (w - 1) * 0.35) * (talk > 0.1 ? 1 : 0));   // a friendly resting smile by default
+    const base = happy ? 0.75 : worried ? 0 : 0.28;                   // a friendly resting smile by default
+    if (p.viseme) {
+      const v = p.viseme;
+      set('mouthOpen', surprised ? Math.max(0.7, v.open) : v.open);
+      set('smile', base * (1 - 0.8 * Math.max(v.purse, v.open * 0.6)) + v.smile);   // the resting smile gives way to the spoken shape
+      set('purse', v.purse); set('upperLip', v.upper); set('lipsOut', v.out);
+    } else {
+      set('mouthOpen', surprised ? 0.7 : talk * 0.95);
+      set('smile', base + Math.max(0, (w - 1) * 0.35) * (talk > 0.1 ? 1 : 0));
+      set('purse', talk > 0.1 ? Math.max(0, (1 - w) * 0.6) : 0);
+    }
     set('frown', worried ? 0.7 : 0);
-    set('purse', talk > 0.1 ? Math.max(0, (1 - w) * 0.6) : 0);
   }
   const mouthOpen = talk > 0.1 || surprised;
   if (rig.face.mouth_in) rig.face.mouth_in.visible = mouthOpen;

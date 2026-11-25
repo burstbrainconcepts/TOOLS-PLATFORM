@@ -30,13 +30,13 @@ const scenes = ep.scenes.map((s, i) => {
   const model = `${VOICES}/${voice}.onnx`;
   if (!existsSync(model)) { console.error(`ERROR  voice model missing: ${model}`); process.exit(1); }
   // cache by text+voice so unchanged scenes are not re-synthesised
-  const key = createHash('sha1').update(`${voice}|${s.text}`).digest('hex').slice(0, 10);
+  const key = createHash('sha1').update(`${voice}|${s.text}|rh2`).digest('hex').slice(0, 10);
   const file = `${dir}/s${String(i + 1).padStart(2, '0')}-${key}.wav`;
   const cache = file.replace('.wav', '.json');
   let t;
   if (existsSync(file) && existsSync(cache)) t = JSON.parse(readFileSync(cache, 'utf8'));
   else { t = synthScene({ text: s.text, model, file }); writeFileSync(cache, JSON.stringify(t)); }
-  return { ...s, who, speaker, audio: `episodes/${ep.id}/${file.split('/').pop()}`, audioFrames: t.audioFrames, frames: t.frames, mouth: t.mouth };
+  return { ...s, who, speaker, audio: `episodes/${ep.id}/${file.split('/').pop()}`, audioFrames: t.audioFrames, frames: t.frames, mouth: t.mouth, visemes: t.visemes ?? undefined };
 });
 const total = scenes.reduce((a, s) => a + s.frames, 0);
 const props = { id: ep.id, fps: 30, total, ctx: { chars: bible.characters, palette: bible.palette, brand: bible.brand, cta: bible.cta, style: bible.style ?? '2d', quality3d: bible.quality3d }, scenes };
